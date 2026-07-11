@@ -1,0 +1,11 @@
+@media (max-width: 920px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .main-panel { padding: 16px; }
+}
+
+@media (max-width: 760px) {
+  .stat-row, .dashboard-grid { grid-template-columns: 1fr; }
+  .welcome-hero, .topbar, .page-header { flex-direction: column; align-items: flex-start; }
+  .choose-grid { grid-template-columns: 1fr; }
+  .auth-card { padding: 24px; }
+}

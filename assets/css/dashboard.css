@@ -1,0 +1,47 @@
+.welcome-hero { position: relative; overflow: hidden; }
+.welcome-hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at top right, rgba(255,255,255,.24), transparent 38%);
+  pointer-events: none;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 16px;
+}
+
+.metric-card {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 20px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border);
+}
+.metric-card h4 { margin: 0 0 8px; font-size: 1.05rem; }
+.metric-card .value { font-size: 1.7rem; font-weight: 700; }
+
+.progress-list { display: flex; flex-direction: column; gap: 10px; }
+.progress-list .item { display: flex; flex-direction: column; gap: 6px; }
+.progress-list .bar { height: 8px; border-radius: 999px; background: rgba(148, 163, 184, 0.2); overflow: hidden; }
+.progress-list .bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--primary), #38bdf8); }
+
+.teacher-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.teacher-action-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 150px;
+  color: var(--text);
+}
+
+.teacher-action-card:hover {
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  .teacher-action-grid { grid-template-columns: 1fr; }
+}

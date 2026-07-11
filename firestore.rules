@@ -1,0 +1,159 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Students can only read/write their own profile. Teachers are scoped to
+    // students in the teacher's assigned department.
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if teacherCanAccessExistingDepartment();
+      allow create: if request.auth != null
+        && (request.auth.uid == userId || teacherCanAccessNewDepartment())
+        && request.resource.data.role == 'student'
+        && validDepartment(request.resource.data.department)
+        && validYear(request.resource.data.year)
+        && validRegisterNumber(request.resource.data.registerNumber);
+      allow update: if request.auth != null
+        && (request.auth.uid == userId || teacherCanAccessExistingAndNewDepartment())
+        && validDepartment(request.resource.data.department)
+        && validYear(request.resource.data.year)
+        && validRegisterNumber(request.resource.data.registerNumber)
+        && request.resource.data.role == resource.data.role
+        && (request.resource.data.email == resource.data.email || request.auth.uid == userId)
+        && request.resource.data.registerNumber == resource.data.registerNumber;
+      allow delete: if teacherCanAccessExistingDepartment();
+    }
+
+    // Teachers can read faculty records, but only update their own document
+    match /teachers/{teacherId} {
+      allow read: if request.auth != null && request.auth.uid == teacherId;
+      allow create: if request.auth != null
+        && request.auth.uid == teacherId
+        && request.resource.data.role == 'teacher'
+        && validDepartment(request.resource.data.department);
+      allow update: if request.auth != null
+        && request.auth.uid == teacherId
+        && validDepartment(request.resource.data.department)
+        && request.resource.data.role == resource.data.role
+        && (request.resource.data.email == resource.data.email || request.auth.uid == teacherId);
+      allow delete: if false;
+    }
+
+    // Function to check if the user is a teacher
+    function isTeacher() {
+      return request.auth != null && exists(/databases/$(database)/documents/teachers/$(request.auth.uid));
+    }
+
+    function teacherProfile() {
+      return get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data;
+    }
+
+    function teacherDepartment() {
+      return teacherProfile().department;
+    }
+
+    function teacherCanAccessExistingDepartment() {
+      return isTeacher()
+        && resource.data.department == teacherDepartment();
+    }
+
+    function teacherCanAccessNewDepartment() {
+      return isTeacher()
+        && request.resource.data.department == teacherDepartment();
+    }
+
+    function teacherCanAccessExistingAndNewDepartment() {
+      return teacherCanAccessExistingDepartment()
+        && request.resource.data.department == teacherDepartment();
+    }
+
+    function validDepartment(department) {
+      return department in [
+        'B.Sc Computer Science (BSC CS)',
+        'Artificial Intelligence & Machine Learning (AI & ML)',
+        'B.Com',
+        'MBA',
+        'Information Technology (IT)',
+        'Computer Science & Data Analytics (CSDA)',
+        'Catering Science & Hotel Management (CS & HM)',
+        'BBA',
+        'B.Com Professional Accounting (BCOM PA)',
+        'B.Com Information Technology (BCOM IT)'
+      ];
+    }
+
+    function validYear(year) {
+      return year in ['I', 'II', 'III'];
+    }
+
+    function validRegisterNumber(registerNumber) {
+      return registerNumber is string && registerNumber.size() > 0;
+    }
+
+    function ownsExistingStudentDoc() {
+      return request.auth != null && resource.data.studentUid == request.auth.uid;
+    }
+
+    function ownsNewStudentDoc() {
+      return request.auth != null && request.resource.data.studentUid == request.auth.uid;
+    }
+
+    function existingDocMatchesOwnerDepartment() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && resource.data.department == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.department;
+    }
+
+    function newDocMatchesOwnerDepartment() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && request.resource.data.department == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.department;
+    }
+
+    function teacherCanAccessExistingDocDepartment() {
+      return isTeacher()
+        && resource.data.department == teacherDepartment();
+    }
+
+    function teacherCanAccessNewDocDepartment() {
+      return isTeacher()
+        && request.resource.data.department == teacherDepartment();
+    }
+
+    function teacherCanAccessExistingAndNewDocDepartment() {
+      return teacherCanAccessExistingDocDepartment()
+        && request.resource.data.department == teacherDepartment();
+    }
+
+    // Rules for student-specific collections
+    match /onlineCertificates/{docId} {
+      allow read, delete: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
+      allow create: if (ownsNewStudentDoc() && newDocMatchesOwnerDepartment()) || teacherCanAccessNewDocDepartment();
+      allow update: if (ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment()) || teacherCanAccessExistingAndNewDocDepartment();
+    }
+
+    match /offlineCertificates/{docId} {
+      allow read, delete: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
+      allow create: if (ownsNewStudentDoc() && newDocMatchesOwnerDepartment()) || teacherCanAccessNewDocDepartment();
+      allow update: if (ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment()) || teacherCanAccessExistingAndNewDocDepartment();
+    }
+
+    match /academicCertificates/{docId} {
+      allow read, delete: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
+      allow create: if (ownsNewStudentDoc() && newDocMatchesOwnerDepartment()) || teacherCanAccessNewDocDepartment();
+      allow update: if (ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment()) || teacherCanAccessExistingAndNewDocDepartment();
+    }
+
+    match /personalDocuments/{docId} {
+      allow read, delete: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
+      allow create: if (ownsNewStudentDoc() && newDocMatchesOwnerDepartment()) || teacherCanAccessNewDocDepartment();
+      allow update: if (ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment()) || teacherCanAccessExistingAndNewDocDepartment();
+    }
+
+    match /activityLogs/{docId} {
+      allow read, delete: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
+      allow create: if (ownsNewStudentDoc() && newDocMatchesOwnerDepartment()) || teacherCanAccessNewDocDepartment();
+      allow update: if (ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment()) || teacherCanAccessExistingAndNewDocDepartment();
+    }
+  }
+}

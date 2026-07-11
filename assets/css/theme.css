@@ -1,0 +1,11 @@
+body[data-theme="dark"] .auth-card,
+body[data-theme="dark"] .sl-card,
+body[data-theme="dark"] .topbar,
+body[data-theme="dark"] .table-responsive,
+body[data-theme="dark"] .sidebar {
+  backdrop-filter: blur(16px);
+}
+
+body[data-theme="dark"] .table thead th {
+  background: rgba(15,23,42,0.85);
+}

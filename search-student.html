@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Search Student - Student Locker</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+<link href="assets/css/style.css" rel="stylesheet">
+</head><body>
+<div data-layout="teacher">
+  <div class="page-header"><h2>Search Students</h2></div>
+  <div class="sl-card mb-3">
+    <div class="row g-2">
+      <div class="col-md-4"><input id="q" class="form-control" placeholder="Search by name, register, or student ID…"></div>
+      <div class="col-md-3"><select id="fDept" class="form-select" data-department-select data-placeholder="All Departments"><option value="">All Departments</option></select></div>
+      <div class="col-md-3"><select id="fYear" class="form-select" data-year-select data-placeholder="All Years"><option value="">All Years</option></select></div>
+      <div class="col-md-2 d-grid"><button id="searchBtn" class="btn btn-primary" type="button"><i class="fas fa-search me-1"></i>Search</button></div>
+    </div>
+  </div>
+  <div class="table-responsive sl-card p-0">
+    <table class="table mb-0"><thead><tr><th>Name</th><th>Register</th><th>Dept</th><th>Year</th><th>Email</th><th>Actions</th></tr></thead>
+      <tbody id="tbody"></tbody></table>
+  </div>
+</div>
+<div class="modal fade" id="studentDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="studentDetailsTitle">Student Details</h5>
+        <button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="studentDetailsBody"></div>
+        <hr>
+        <h6 class="mb-3">Uploaded Documents</h6>
+        <div id="studentDocumentsBody"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="documentPreviewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="documentPreviewTitle">Preview</h5>
+        <button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="documentPreviewBody"></div>
+    </div>
+  </div>
+</div>
+<script type="module" src="assets/js/constants.js"></script>
+<script type="module" src="assets/js/firebase-init.js"></script>
+<script type="module" src="assets/js/firebase-services.js"></script>
+<script type="module" src="assets/js/wait-for-firebase.js"></script>
+<script type="module" src="assets/js/auth-guard.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script type="module" src="assets/js/app.js"></script><script type="module" src="assets/js/layout.js"></script><script type="module" src="assets/js/dashboard.js"></script>
+<script type="module">
+  async function loadStudents(){
+    return window.userService.listStudents();
+  }
+
+  async function lockDepartmentFilter() {
+    const deptSelect = document.getElementById('fDept');
+    try {
+      const department = await window.userService.getTeacherDepartment();
+      deptSelect.innerHTML = `<option value="${escapeHtml(department)}">${escapeHtml(department)}</option>`;
+      deptSelect.value = department;
+      deptSelect.disabled = true;
+    } catch (error) {
+      slToast(error.message || 'Teacher department is not assigned', 'error');
+    }
+  }
+
+  async function renderResults(){
+    const q = document.getElementById('q').value.toLowerCase();
+    const dept = document.getElementById('fDept').value;
+    const year = document.getElementById('fYear').value;
+    const students = await loadStudents();
+    const rows = students.filter(s=>{
+      const name = s.fullName || s.name || '';
+      const reg = s.registerNumber || s.reg || '';
+      const rowDept = s.department || s.dept || '';
+      return (!q || name.toLowerCase().includes(q) || reg.toLowerCase().includes(q) || (s.studentId||'').toLowerCase().includes(q))
+        && (!dept || rowDept===dept) && (!year || s.year===year);
+    });
+    document.getElementById('tbody').innerHTML = rows.length ? rows.map(s=>{
+      const uid = s.uid || s.id;
+      return `
+      <tr>
+        <td><button class="btn btn-link p-0 text-start" data-view-student="${escapeHtml(uid)}">${escapeHtml(s.fullName || s.name || '-')}</button></td>
+        <td>${escapeHtml(s.registerNumber || s.reg || '-')}</td><td>${escapeHtml(s.department || s.dept || '-')}</td><td>${escapeHtml(s.year||'-')}</td><td>${escapeHtml(s.email||'-')}</td>
+        <td class="text-nowrap">
+          <button class="btn btn-sm btn-outline-primary" data-view-student="${escapeHtml(uid)}"><i class="fas fa-eye me-1"></i>View</button>
+          <button class="btn btn-sm btn-outline-danger" data-delete-student="${escapeHtml(uid)}"><i class="fas fa-trash me-1"></i>Delete</button>
+        </td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="6" class="text-center text-muted p-4">No students found</td></tr>';
+  }
+  function formatDocDate(value){
+    if (!value) return '-';
+    if (value.seconds) return new Date(value.seconds * 1000).toLocaleDateString();
+    return new Date(value).toLocaleDateString();
+  }
+  function docFileUrl(doc){
+    return doc.fileUrl || doc.dataUrl || '';
+  }
+  async function viewStudent(id){
+    const students = await loadStudents();
+    const student = students.find(x=>String(x.uid || x.id)===String(id));
+    if(!student) return slToast('Student record not found', 'error');
+    const uid = student.uid || student.id;
+    const docs = await window.documentService.getStudentDocuments(uid);
+    document.getElementById('studentDetailsTitle').textContent = student.fullName || student.name || 'Student Details';
+    document.getElementById('studentDetailsBody').innerHTML = `
+      <div class="row g-3">
+        <div class="col-md-4"><small class="text-muted">Full Name</small><div class="fw-semibold">${escapeHtml(student.fullName || student.name || '-')}</div></div>
+        <div class="col-md-4"><small class="text-muted">Register Number</small><div class="fw-semibold">${escapeHtml(student.registerNumber || student.reg || '-')}</div></div>
+        <div class="col-md-4"><small class="text-muted">Department</small><div>${escapeHtml(student.department || student.dept || '-')}</div></div>
+        <div class="col-md-4"><small class="text-muted">Year</small><div>${escapeHtml(student.year || '-')}</div></div>
+        <div class="col-md-4"><small class="text-muted">Email</small><div>${escapeHtml(student.email || '-')}</div></div>
+        <div class="col-md-4"><small class="text-muted">Phone Number</small><div>${escapeHtml(student.phone || student.mobile || '-')}</div></div>
+      </div>`;
+    document.getElementById('studentDocumentsBody').innerHTML = docs.length ? `
+      <div class="table-responsive">
+        <table class="table"><thead><tr><th>Document Name</th><th>Category</th><th>Upload Date</th><th>Actions</th></tr></thead><tbody>
+          ${docs.map(doc => {
+            const url = docFileUrl(doc);
+            return `<tr>
+              <td>${escapeHtml(doc.title || doc.fileName || doc.filename || '-')}</td>
+              <td>${escapeHtml(doc.category || '-')}</td>
+              <td>${escapeHtml(formatDocDate(doc.createdAt))}</td>
+              <td class="text-nowrap">
+                <button class="btn btn-sm btn-outline-primary" data-preview-doc="${escapeHtml(doc.id)}"><i class="fas fa-eye me-1"></i>View</button>
+                <a class="btn btn-sm btn-outline-secondary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" download="${escapeHtml(doc.fileName || doc.filename || doc.title || 'document')}"><i class="fas fa-download me-1"></i>Download</a>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody></table>
+      </div>` : '<div class="empty-state">No documents uploaded for this student.</div>';
+    window.currentStudentDocuments = docs;
+    new bootstrap.Modal(document.getElementById('studentDetailsModal')).show();
+  }
+  async function deleteStudent(id){
+    if(!confirm('Delete this student and associated document metadata?')) return;
+    try {
+      await window.userService.deleteStudent(id);
+      slToast('Student deleted successfully', 'success');
+      renderResults();
+    } catch (error) {
+      slToast(error.message || 'Unable to delete student', 'error');
+    }
+  }
+  function previewDocument(id){
+    const doc = (window.currentStudentDocuments || []).find(item => String(item.id) === String(id));
+    if(!doc) return;
+    const url = docFileUrl(doc);
+    document.getElementById('documentPreviewTitle').textContent = doc.title || doc.fileName || 'Preview';
+    const body = document.getElementById('documentPreviewBody');
+    body.replaceChildren();
+    const type = doc.fileType || doc.type || '';
+    if(!url){
+      body.innerHTML = '<div class="empty-state">Preview is not available for this document.</div>';
+    } else if(type.startsWith('image/')) {
+      const image = document.createElement('img');
+      image.src = url;
+      image.className = 'img-fluid rounded';
+      body.appendChild(image);
+    } else if(type === 'application/pdf') {
+      const frame = document.createElement('iframe');
+      frame.src = url;
+      frame.style.cssText = 'width:100%;height:70vh;border:0';
+      body.appendChild(frame);
+    } else {
+      body.innerHTML = '<div class="empty-state">Preview is not supported for this file type.</div>';
+    }
+    new bootstrap.Modal(document.getElementById('documentPreviewModal')).show();
+  }
+  document.getElementById('q').addEventListener('input', renderResults);
+  document.getElementById('searchBtn').addEventListener('click', renderResults);
+  document.getElementById('fDept').addEventListener('change', renderResults);
+  document.getElementById('fYear').addEventListener('change', renderResults);
+  document.getElementById('tbody').addEventListener('click', (event) => {
+    const viewButton = event.target.closest('[data-view-student]');
+    const deleteButton = event.target.closest('[data-delete-student]');
+    if (viewButton) viewStudent(viewButton.getAttribute('data-view-student'));
+    if (deleteButton) deleteStudent(deleteButton.getAttribute('data-delete-student'));
+  });
+  document.getElementById('studentDocumentsBody').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-preview-doc]');
+    if (button) previewDocument(button.getAttribute('data-preview-doc'));
+  });
+  lockDepartmentFilter().then(renderResults);
+</script>
+</body></html>

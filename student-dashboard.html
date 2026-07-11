@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Dashboard - Student Digital Locker</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+<link href="assets/css/style.css" rel="stylesheet"><link href="assets/css/dashboard.css" rel="stylesheet"><link href="assets/css/responsive.css" rel="stylesheet">
+</head><body>
+<div data-layout="student">
+  <div class="welcome-hero">
+    <div><h3>Welcome, <span data-user-name>Student</span></h3><p>Your digital locker is ready for secure records and academic documents.</p></div>
+  </div>
+  <div class="stat-row">
+    <a href="personal-documents.html" class="sl-card doc-card text-decoration-none text-reset">
+      <div class="sl-icon-circle"><i class="fas fa-id-card"></i></div>
+      <h5>Personal Documents</h5><p class="text-muted" data-doc-count="personal">0 documents</p>
+    </a>
+    <a href="online-certificates.html" class="sl-card doc-card text-decoration-none text-reset">
+      <div class="sl-icon-circle"><i class="fas fa-cloud"></i></div>
+      <h5>Online Certificates</h5><p class="text-muted" data-doc-count="online">0 documents</p>
+    </a>
+    <a href="offline-certificates.html" class="sl-card doc-card text-decoration-none text-reset">
+      <div class="sl-icon-circle"><i class="fas fa-folder-open"></i></div>
+      <h5>Offline Certificates</h5><p class="text-muted" data-doc-count="offline">0 documents</p>
+    </a>
+    <a href="academic-certificates.html" class="sl-card doc-card text-decoration-none text-reset">
+      <div class="sl-icon-circle"><i class="fas fa-graduation-cap"></i></div>
+      <h5>Academic Certificates</h5><p class="text-muted" data-doc-count="academic">0 documents</p>
+    </a>
+  </div>
+</div>
+<script type="module" src="assets/js/constants.js"></script>
+<script type="module" src="assets/js/firebase-init.js"></script>
+<script type="module" src="assets/js/firebase-services.js"></script>
+<script type="module" src="assets/js/wait-for-firebase.js"></script>
+<script type="module" src="assets/js/auth-guard.js"></script>
+<script type="module" src="assets/js/app.js"></script><script type="module" src="assets/js/layout.js"></script><script type="module" src="assets/js/dashboard.js"></script>
+</body></html>

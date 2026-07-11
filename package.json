@@ -1,0 +1,17 @@
+{
+  "name": "student-digital-locker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5173"
+  },
+  "devDependencies": {
+    "vite": "^8.1.4"
+  },
+  "dependencies": {
+    "firebase": "^12.16.0"
+  }
+}

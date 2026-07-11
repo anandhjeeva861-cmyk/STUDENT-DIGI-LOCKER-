@@ -1,0 +1,39 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userProfile() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function teacherProfile() {
+      return firestore.get(/databases/(default)/documents/teachers/$(request.auth.uid)).data;
+    }
+
+    function isTeacher() {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/teachers/$(request.auth.uid));
+    }
+
+    function validOwner(studentUid) {
+      return isSignedIn() && request.auth.uid == studentUid;
+    }
+
+    match /students/{studentUid}/{category}/{fileName} {
+      allow read: if validOwner(studentUid)
+        || (isTeacher()
+          && resource.metadata.department == teacherProfile().department);
+      allow create: if validOwner(studentUid)
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png']
+        && request.resource.metadata.department == userProfile().department;
+      allow update: if false;
+      allow delete: if validOwner(studentUid)
+        || (isTeacher()
+          && resource.metadata.department == teacherProfile().department);
+    }
+  }
+}
