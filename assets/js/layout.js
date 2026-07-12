@@ -19,7 +19,7 @@
   sidebar.className = 'sidebar';
   sidebar.innerHTML = `
     <div class="brand">
-      <div class="sl-icon-circle" style="background: rgba(255,255,255,0.16); color: white; width:46px; height:46px; border-radius:14px;"><i class="fas fa-shield-halved"></i></div>
+      <img class="portal-logo portal-logo-sidebar" src="assets/img/sankara-logo.png" alt="Sankara Educational Institutions logo">
       <div>
         <strong>Student Digital Locker</strong>
         <small>Secure campus portal</small>
@@ -27,7 +27,7 @@
     </div>
     <nav class="nav-list">
       <a class="nav-link ${getRole()==='teacher'?'':'active'}" href="${getRole()==='teacher'?'teacher-dashboard.html':'student-dashboard.html'}"><i class="fas fa-gauge-high"></i> Dashboard</a>
-      ${getRole() === 'teacher' ? `<a class="nav-link" href="add-student.html"><i class="fas fa-user-plus"></i> Add Student</a><a class="nav-link" href="search-student.html"><i class="fas fa-magnifying-glass"></i> Search Students</a><a class="nav-link" href="teacher-profile.html"><i class="fas fa-user-tie"></i> View Profile</a>` : `<a class="nav-link" href="personal-documents.html"><i class="fas fa-id-card"></i> Personal Docs</a><a class="nav-link" href="online-certificates.html"><i class="fas fa-cloud"></i> Online Certificates</a><a class="nav-link" href="offline-certificates.html"><i class="fas fa-folder-open"></i> Offline Certificates</a><a class="nav-link" href="academic-certificates.html"><i class="fas fa-graduation-cap"></i> Academic Certificates</a><a class="nav-link" href="profile.html"><i class="fas fa-user"></i> View Profile</a>`}
+      ${getRole() === 'teacher' ? `<a class="nav-link" href="search-student.html"><i class="fas fa-list"></i> Student List</a><a class="nav-link" href="teacher-profile.html"><i class="fas fa-user-tie"></i> View Profile</a>` : `<a class="nav-link" href="personal-documents.html"><i class="fas fa-id-card"></i> Personal Docs</a><a class="nav-link" href="online-certificates.html"><i class="fas fa-cloud"></i> Online Certificates</a><a class="nav-link" href="offline-certificates.html"><i class="fas fa-folder-open"></i> Offline Certificates</a><a class="nav-link" href="academic-certificates.html"><i class="fas fa-graduation-cap"></i> Academic Certificates</a><a class="nav-link" href="profile.html"><i class="fas fa-user"></i> View Profile</a>`}
       <a id="logoutBtn" class="nav-link" href="#"><i class="fas fa-right-from-bracket"></i> Logout</a>
     </nav>
   `;
@@ -56,6 +56,7 @@
       <button type="button" class="menu-btn" data-sidebar-toggle aria-label="Open menu" aria-expanded="false">
         <i class="fas fa-bars"></i>
       </button>
+      <img class="portal-logo portal-logo-topbar" src="assets/img/sankara-logo.png" alt="Sankara Educational Institutions logo">
       <div>
         <div class="fw-semibold">${document.title}</div>
         <div class="text-muted small" data-topbar-welcome>Welcome, ${getUserName()}</div>

@@ -18,7 +18,9 @@
         : await window.documentService.getStats();
       if (role === 'teacher') {
         const department = data.department || profile?.department || '-';
+        const year = data.year || profile?.year || '-';
         document.querySelectorAll('[data-teacher-department]').forEach(el => { el.textContent = department; });
+        document.querySelectorAll('[data-teacher-year]').forEach(el => { el.textContent = window.SL_YEAR_LABELS?.[year] || year; });
       }
       stats = {
         totalDocuments: data.totalDocuments || 0,

@@ -12,7 +12,7 @@
 </div>
 <div class="auth-wrapper"><div class="auth-card" style="max-width:680px">
   <div class="text-center">
-    <div class="auth-logo"><i class="fas fa-user-tie"></i></div>
+    <div class="auth-logo auth-logo-img"><img class="portal-logo portal-logo-auth" src="assets/img/sankara-logo.png" alt="Sankara Educational Institutions logo"></div>
     <h3 class="auth-title">Teacher Registration</h3>
     <p class="auth-sub">Create a secure faculty account for Student Digital Locker.</p>
   </div>
@@ -20,6 +20,7 @@
     <div class="row g-3">
       <div class="col-md-6"><label class="form-label" for="fullName">Full Name</label><input id="fullName" name="fullName" class="form-control" required></div>
       <div class="col-md-6"><label class="form-label" for="department">Department</label><select id="department" name="department" class="form-select" data-department-select required></select></div>
+      <div class="col-md-6"><label class="form-label" for="year">Academic Year</label><select id="year" name="year" class="form-select" data-year-select required><option value="">Select Academic Year</option></select></div>
       <div class="col-md-6"><label class="form-label" for="designation">Designation</label><input id="designation" name="designation" class="form-control" required></div>
       <div class="col-md-6"><label class="form-label" for="phone">Phone Number</label><input id="phone" name="phone" class="form-control" maxlength="15" required></div>
       <div class="col-md-6"><label class="form-label" for="email">Email</label><input id="email" name="email" type="email" class="form-control" required></div>
@@ -68,10 +69,15 @@
       slToast('Please select a department', 'error');
       return;
     }
+    if (!data.year) {
+      slToast('Please select an academic year', 'error');
+      return;
+    }
     try {
       await window.authService.registerTeacher({
         fullName: data.fullName,
         department: data.department,
+        year: data.year,
         designation: data.designation,
         email: data.email,
         phone: data.phone,

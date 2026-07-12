@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Students can only read/write their own profile. Teachers are scoped to
-    // students in the teacher's assigned department.
+    // students in the teacher's assigned department and academic year.
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow read: if teacherCanAccessExistingDepartment();
@@ -30,10 +30,12 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == teacherId
         && request.resource.data.role == 'teacher'
-        && validDepartment(request.resource.data.department);
+        && validDepartment(request.resource.data.department)
+        && validYear(request.resource.data.year);
       allow update: if request.auth != null
         && request.auth.uid == teacherId
         && validDepartment(request.resource.data.department)
+        && validYear(request.resource.data.year)
         && request.resource.data.role == resource.data.role
         && (request.resource.data.email == resource.data.email || request.auth.uid == teacherId);
       allow delete: if false;
@@ -52,19 +54,26 @@ service cloud.firestore {
       return teacherProfile().department;
     }
 
+    function teacherYear() {
+      return teacherProfile().year;
+    }
+
     function teacherCanAccessExistingDepartment() {
       return isTeacher()
-        && resource.data.department == teacherDepartment();
+        && resource.data.department == teacherDepartment()
+        && resource.data.year == teacherYear();
     }
 
     function teacherCanAccessNewDepartment() {
       return isTeacher()
-        && request.resource.data.department == teacherDepartment();
+        && request.resource.data.department == teacherDepartment()
+        && request.resource.data.year == teacherYear();
     }
 
     function teacherCanAccessExistingAndNewDepartment() {
       return teacherCanAccessExistingDepartment()
-        && request.resource.data.department == teacherDepartment();
+        && request.resource.data.department == teacherDepartment()
+        && request.resource.data.year == teacherYear();
     }
 
     function validDepartment(department) {
@@ -123,32 +132,38 @@ service cloud.firestore {
 
     function teacherCanAccessExistingDocDepartment() {
       return isTeacher()
-        && resource.data.department == teacherDepartment();
+        && resource.data.department == teacherDepartment()
+        && resource.data.year == teacherYear();
     }
 
     function teacherCanAccessNewDocDepartment() {
       return isTeacher()
-        && request.resource.data.department == teacherDepartment();
+        && request.resource.data.department == teacherDepartment()
+        && request.resource.data.year == teacherYear();
     }
 
     function teacherCanAccessExistingAndNewDocDepartment() {
       return teacherCanAccessExistingDocDepartment()
-        && request.resource.data.department == teacherDepartment();
+        && request.resource.data.department == teacherDepartment()
+        && request.resource.data.year == teacherYear();
     }
 
     function validNewDocumentCommon(category) {
       return request.resource.data.category == category
         && request.resource.data.studentUid is string
         && request.resource.data.department is string
+        && request.resource.data.year is string
         && request.resource.data.title is string
         && request.resource.data.fileName is string
         && request.resource.data.fileUrl is string
-        && validDepartment(request.resource.data.department);
+        && validDepartment(request.resource.data.department)
+        && validYear(request.resource.data.year);
     }
 
     function validUpdatedDocumentCommon() {
       return request.resource.data.studentUid == resource.data.studentUid
         && request.resource.data.department == resource.data.department
+        && request.resource.data.year == resource.data.year
         && request.resource.data.category == resource.data.category
         && request.resource.data.storagePath == resource.data.storagePath;
     }

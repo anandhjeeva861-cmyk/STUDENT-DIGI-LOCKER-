@@ -6,6 +6,14 @@
   toastContainer.className = 'toast-container';
   document.body.appendChild(toastContainer);
 
+  if (!document.querySelector('link[rel="icon"]')) {
+    const favicon = document.createElement('link');
+    favicon.rel = 'icon';
+    favicon.type = 'image/png';
+    favicon.href = 'assets/img/sankara-logo.png';
+    document.head.appendChild(favicon);
+  }
+
   window.slToast = function(message, type='info') {
     const el = document.createElement('div');
     el.className = `toast-item ${type}`;
@@ -68,6 +76,7 @@
   window.slSetTheme(savedTheme);
 
   window.SL_YEARS = ['I', 'II', 'III'];
+  window.SL_YEAR_LABELS = window.SL_YEAR_LABELS || { I: 'I Year', II: 'II Year', III: 'III Year' };
   window.SL_ACADEMIC_DOCUMENT_TYPES = window.SL_ACADEMIC_DOCUMENT_TYPES || [
     'Aadhaar Card',
     'Income Certificate',
@@ -81,7 +90,7 @@
       const current = select.value;
       const placeholder = select.dataset.placeholder || 'Select Year';
       select.innerHTML = `<option value="">${placeholder}</option>` + window.SL_YEARS
-        .map((year) => `<option value="${year}">${year}</option>`)
+        .map((year) => `<option value="${year}">${window.SL_YEAR_LABELS[year] || year}</option>`)
         .join('');
       if (window.SL_YEARS.includes(current)) select.value = current;
     });
@@ -231,10 +240,18 @@
     return department;
   };
 
+  const requireTeacherYear = async () => {
+    const profile = await currentTeacherProfile();
+    const year = profile?.year || '';
+    if (!year) throw new Error('Teacher academic year is not assigned.');
+    return year;
+  };
+
   const canTeacherAccessStudent = async (student) => {
     if (localStorage.getItem('sl_role') !== 'teacher') return true;
     const department = await requireTeacherDepartment();
-    return getDepartment(student) === department;
+    const year = await requireTeacherYear();
+    return getDepartment(student) === department && student?.year === year;
   };
 
   const assertTeacherCanAccessStudent = async (student) => {
@@ -254,11 +271,12 @@
     if (localStorage.getItem('sl_role') !== 'teacher') return true;
     if (documentRecord?.category !== 'Academic Certificates') return false;
     const teacherDepartment = await requireTeacherDepartment();
+    const teacherYear = await requireTeacherYear();
     const documentDepartment = getDepartment(documentRecord);
-    if (documentDepartment) return documentDepartment === teacherDepartment;
+    if (documentDepartment && documentRecord?.year) return documentDepartment === teacherDepartment && documentRecord.year === teacherYear;
     if (!documentRecord?.studentUid) return false;
     const student = await findLocalStudent(documentRecord.studentUid);
-    return getDepartment(student || {}) === teacherDepartment;
+    return getDepartment(student || {}) === teacherDepartment && student?.year === teacherYear;
   };
 
   const assertTeacherCanAccessDocument = async (documentRecord) => {
@@ -270,7 +288,8 @@
   const visibleDocumentsForTeacher = async (docs) => {
     if (localStorage.getItem('sl_role') !== 'teacher') return docs;
     const department = await requireTeacherDepartment();
-    return docs.filter((doc) => doc.category === 'Academic Certificates' && getDepartment(doc) === department);
+    const year = await requireTeacherYear();
+    return docs.filter((doc) => doc.category === 'Academic Certificates' && getDepartment(doc) === department && doc.year === year);
   };
 
   window.authService = {
@@ -312,6 +331,7 @@
       const email = String(teacherData.email || '').trim().toLowerCase();
       if (findLocalAccount(email, 'teacher')) throw new Error('This email address is already registered.');
       assertValidDepartment(teacherData.department);
+      assertValidYear(teacherData.year);
       const uid = `teacher-${Date.now()}`;
       const profile = normalizeProfile('teacher', {
         uid,
@@ -319,6 +339,7 @@
         email,
         phone: teacherData.phone,
         department: teacherData.department,
+        year: teacherData.year,
         designation: teacherData.designation,
       });
       const accounts = localAccounts();
@@ -454,10 +475,20 @@
       const students = Array.from(byId.values());
       if (localStorage.getItem('sl_role') !== 'teacher') return students;
       const department = await requireTeacherDepartment();
-      return students.filter((student) => getDepartment(student) === department);
+      const year = await requireTeacherYear();
+      return students.filter((student) => getDepartment(student) === department && student.year === year);
     },
 
     getTeacherDepartment: async () => requireTeacherDepartment(),
+    getTeacherYear: async () => requireTeacherYear(),
+
+    subscribeStudents: async (callback) => {
+      if (hasLiveFirebase() && window.firebaseServices?.subscribeStudents) {
+        return window.firebaseServices.subscribeStudents(callback);
+      }
+      callback(await window.userService.listStudents());
+      return () => {};
+    },
 
     canAccessStudent: async (student) => canTeacherAccessStudent(student),
 
@@ -487,12 +518,14 @@
         return window.firebaseServices.getTeacherDashboardStats();
       }
       const department = await requireTeacherDepartment();
+      const year = await requireTeacherYear();
       const students = await window.userService.listStudents();
       const studentIds = new Set(students.map((student) => String(student.uid || student.id)));
       const docs = window.documentService.getAllDocuments()
         .filter((doc) => doc.category === 'Academic Certificates' && (studentIds.has(String(doc.studentUid)) || getDepartment(doc) === department));
       return {
         department,
+        year,
         totalStudents: students.length,
         totalDocuments: docs.length,
         personalCount: 0,

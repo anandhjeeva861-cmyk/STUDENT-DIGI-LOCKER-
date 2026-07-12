@@ -14,6 +14,11 @@
 
   window.SL_DEPARTMENTS = departments;
   window.SL_YEARS = ['I', 'II', 'III'];
+  window.SL_YEAR_LABELS = {
+    I: 'I Year',
+    II: 'II Year',
+    III: 'III Year',
+  };
   window.SL_ACADEMIC_DOCUMENT_TYPES = [
     'Aadhaar Card',
     'Income Certificate',
@@ -39,7 +44,7 @@
       const current = select.value;
       const placeholder = select.dataset.placeholder || 'Select Year';
       select.innerHTML = `<option value="">${placeholder}</option>` + window.SL_YEARS
-        .map((year) => `<option value="${year}">${year}</option>`)
+        .map((year) => `<option value="${year}">${window.SL_YEAR_LABELS[year] || year}</option>`)
         .join('');
       if (window.SL_YEARS.includes(current)) select.value = current;
     });

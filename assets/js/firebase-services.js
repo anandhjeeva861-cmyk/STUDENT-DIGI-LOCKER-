@@ -1,6 +1,6 @@
 import { auth, authPersistenceReady, db, storage } from './firebase-init.js';
 import { createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updateEmail, updatePassword, deleteUser, onAuthStateChanged } from 'firebase/auth';
-import { setDoc, doc, getDoc, serverTimestamp, updateDoc, addDoc, collection, getDocs, query, where, deleteDoc, getCountFromServer } from 'firebase/firestore';
+import { setDoc, doc, getDoc, serverTimestamp, updateDoc, addDoc, collection, getDocs, query, where, deleteDoc, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 const VALID_DEPARTMENTS = window.SL_DEPARTMENTS || [];
@@ -46,6 +46,21 @@ const buildGeneratedId = (prefix, uid = '') => {
 const isEmail = (value = '') => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim());
 const normalizeEmail = (value = '') => String(value).trim().toLowerCase();
 
+const friendlyAuthError = (error) => {
+  switch (error?.code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return new Error('Invalid email or password.');
+    case 'auth/network-request-failed':
+      return new Error('Network error. Please check your internet connection and try again.');
+    case 'auth/too-many-requests':
+      return new Error('Too many failed attempts. Please wait a moment and try again.');
+    default:
+      return error;
+  }
+};
+
 const validatePassword = (password = '') => {
   if (password.length < 8) throw new Error('Password must be at least 8 characters long.');
   if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
@@ -63,6 +78,7 @@ const getActiveTeacherProfile = async () => {
   }
   const profile = { id: teacherDoc.id, ...teacherDoc.data() };
   if (!profile.department) throw new Error('Teacher department is not assigned.');
+  if (!profile.year) throw new Error('Teacher academic year is not assigned.');
   return profile;
 };
 
@@ -85,8 +101,8 @@ const safeFileName = (name = 'document') => String(name).replace(/[^A-Za-z0-9._-
 
 const assertTeacherCanAccessStudent = async (student, teacherProfile = null) => {
   const teacher = teacherProfile || await getActiveTeacherProfile();
-  if (!student || student.department !== teacher.department) {
-    throw new Error('Access denied. This student belongs to another department.');
+  if (!student || student.department !== teacher.department || student.year !== teacher.year) {
+    throw new Error('Access denied. This student belongs to another department or academic year.');
   }
   return teacher;
 };
@@ -101,8 +117,8 @@ const assertTeacherCanAccessDocumentData = async (documentData, teacherProfile =
   if (documentData?.category !== 'Academic Certificates') {
     throw new Error('Access denied. Teachers can access only Academic Certificates.');
   }
-  if (!documentData || documentData.department !== teacher.department) {
-    throw new Error('Access denied. This document belongs to another department.');
+  if (!documentData || documentData.department !== teacher.department || documentData.year !== teacher.year) {
+    throw new Error('Access denied. This document belongs to another department or academic year.');
   }
   return teacher;
 };
@@ -205,12 +221,13 @@ const firebaseServices = {
 
   registerTeacher: async (teacherData) => {
     firebaseServices._assertReady();
-    const { password, fullName, department, designation, phone } = teacherData;
+    const { password, fullName, department, year, designation, phone } = teacherData;
     const email = normalizeEmail(teacherData.email);
     firebaseServices._assertDepartment(department);
+    firebaseServices._assertYear(year);
     if (!isEmail(email)) throw new Error('Please enter a valid email address.');
     validatePassword(password);
-    if (!email || !password || !fullName || !department || !designation || !phone) {
+    if (!email || !password || !fullName || !department || !year || !designation || !phone) {
       throw new Error('Please complete all required teacher registration fields.');
     }
     let userCredential;
@@ -234,6 +251,7 @@ const firebaseServices = {
         email,
         phone: phone.trim(),
         department: department,
+        year,
         designation: designation.trim(),
         role: 'teacher',
         createdAt: serverTimestamp(),
@@ -252,7 +270,12 @@ const firebaseServices = {
     if (!isEmail(normalizedEmail)) throw new Error('Please enter a valid email address.');
     if (!password) throw new Error('Please enter your password.');
     await authPersistenceReady;
-    const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+    let userCredential;
+    try {
+      userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+    } catch (error) {
+      throw friendlyAuthError(error);
+    }
     const user = userCredential.user;
     const collectionName = role === 'teacher' ? 'teachers' : 'users';
     const userDoc = await getDoc(doc(db, collectionName, user.uid));
@@ -264,7 +287,7 @@ const firebaseServices = {
       }
     } else {
       await signOut(auth);
-      throw new Error("User data not found.");
+      throw new Error("User data not found. Please contact the administrator.");
     }
     return user;
   },
@@ -299,6 +322,7 @@ const firebaseServices = {
     }
     if (role === 'teacher') {
       delete sanitized.teacherId;
+      if (sanitized.year) firebaseServices._assertYear(sanitized.year);
     }
     await updateDoc(doc(db, collectionName, uid), { ...sanitized, updatedAt: serverTimestamp() });
   },
@@ -368,6 +392,7 @@ const firebaseServices = {
       customMetadata: {
         studentUid: activeStudent.uid,
         department: activeStudent.department,
+        year: activeStudent.year || '',
         category,
         documentType: documentTitle,
       },
@@ -413,7 +438,7 @@ const firebaseServices = {
       const teacher = await getActiveTeacherProfile();
       const student = await firebaseServices.getStudentById(uid);
       await assertTeacherCanAccessStudent(student, teacher);
-      docsQuery = query(collection(db, collectionName), where("studentUid", "==", uid), where("department", "==", teacher.department));
+      docsQuery = query(collection(db, collectionName), where("studentUid", "==", uid), where("department", "==", teacher.department), where("year", "==", teacher.year));
     } else if (auth.currentUser && String(uid) !== String(auth.currentUser.uid)) {
       throw new Error('Access denied. You can view only your own documents.');
     } else if (auth.currentUser) {
@@ -487,16 +512,18 @@ const firebaseServices = {
   searchStudents: async (searchParams) => {
     firebaseServices._assertReady();
     let scopedDepartment = searchParams.department || '';
+    let scopedYear = searchParams.year || '';
     if (auth.currentUser && await firebaseServices.getUserRole(auth.currentUser.uid) === 'teacher') {
       const teacher = await getActiveTeacherProfile();
       scopedDepartment = teacher.department;
+      scopedYear = teacher.year;
     }
     let q = scopedDepartment
       ? query(collection(db, "users"), where("department", "==", scopedDepartment))
       : query(collection(db, "users"));
     if (searchParams.registerNumber) q = query(q, where("registerNumber", "==", searchParams.registerNumber));
     if (searchParams.name) q = query(q, where("fullName", ">=", searchParams.name), where("fullName", "<=", searchParams.name + '\uf8ff'));
-    if (searchParams.year) q = query(q, where("year", "==", searchParams.year));
+    if (scopedYear) q = query(q, where("year", "==", scopedYear));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
@@ -506,10 +533,25 @@ const firebaseServices = {
     let studentsQuery = query(collection(db, "users"));
     if (auth.currentUser && await firebaseServices.getUserRole(auth.currentUser.uid) === 'teacher') {
       const teacher = await getActiveTeacherProfile();
-      studentsQuery = query(collection(db, "users"), where("department", "==", teacher.department));
+      studentsQuery = query(collection(db, "users"), where("department", "==", teacher.department), where("year", "==", teacher.year));
     }
     const querySnapshot = await getDocs(studentsQuery);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  subscribeStudents: async (callback) => {
+    firebaseServices._assertReady();
+    let studentsQuery = query(collection(db, "users"));
+    if (auth.currentUser && await firebaseServices.getUserRole(auth.currentUser.uid) === 'teacher') {
+      const teacher = await getActiveTeacherProfile();
+      studentsQuery = query(collection(db, "users"), where("department", "==", teacher.department), where("year", "==", teacher.year));
+    }
+    return onSnapshot(studentsQuery, (snapshot) => {
+      callback(snapshot.docs.map(studentDoc => ({ id: studentDoc.id, uid: studentDoc.id, ...studentDoc.data() })));
+    }, (error) => {
+      console.error('[firebase-services] Student listener failed.', error);
+      window.slToast?.(error.message || 'Student list sync failed.', 'error');
+    });
   },
 
   getStudentById: async (studentId) => {
@@ -528,7 +570,11 @@ const firebaseServices = {
       if (studentData.department && studentData.department !== teacher.department) {
         throw new Error('You can add students only to your assigned department.');
       }
+      if (studentData.year && studentData.year !== teacher.year) {
+        throw new Error('You can add students only to your assigned academic year.');
+      }
       studentData.department = teacher.department;
+      studentData.year = teacher.year;
     }
     firebaseServices._assertDepartment(studentData.department);
     firebaseServices._assertYear(studentData.year);
@@ -585,7 +631,7 @@ const firebaseServices = {
     for (const category of categories) {
       const collectionName = getCollectionName(category);
       const q = teacher
-        ? query(collection(db, collectionName), where("studentUid", "==", uid), where("department", "==", teacher.department))
+        ? query(collection(db, collectionName), where("studentUid", "==", uid), where("department", "==", teacher.department), where("year", "==", teacher.year))
         : studentProfile
           ? query(collection(db, collectionName), where("studentUid", "==", uid), where("department", "==", studentProfile.department))
         : query(collection(db, collectionName), where("studentUid", "==", uid));
@@ -613,7 +659,7 @@ const firebaseServices = {
     for (const category of categories) {
       const collectionName = getCollectionName(category);
       const q = teacher
-        ? query(collection(db, collectionName), where("studentUid", "==", uid), where("department", "==", teacher.department))
+        ? query(collection(db, collectionName), where("studentUid", "==", uid), where("department", "==", teacher.department), where("year", "==", teacher.year))
         : studentProfile
           ? query(collection(db, collectionName), where("studentUid", "==", uid), where("department", "==", studentProfile.department))
         : query(collection(db, collectionName), where("studentUid", "==", uid));
@@ -676,10 +722,11 @@ const firebaseServices = {
   getTeacherDashboardStats: async () => {
     firebaseServices._assertReady();
     const teacher = await getActiveTeacherProfile();
-    const studentSnapshot = await getCountFromServer(query(collection(db, "users"), where("department", "==", teacher.department)));
+    const studentSnapshot = await getCountFromServer(query(collection(db, "users"), where("department", "==", teacher.department), where("year", "==", teacher.year)));
     const categories = TEACHER_READABLE_CATEGORIES;
     const counts = {
       department: teacher.department,
+      year: teacher.year,
       totalStudents: studentSnapshot.data().count,
       totalDocuments: 0,
       personalCount: 0,
@@ -695,7 +742,7 @@ const firebaseServices = {
     };
     for (const category of categories) {
       const docsSnapshot = await getCountFromServer(
-        query(collection(db, getCollectionName(category)), where("department", "==", teacher.department))
+        query(collection(db, getCollectionName(category)), where("department", "==", teacher.department), where("year", "==", teacher.year))
       );
       const count = docsSnapshot.data().count;
       counts[keyByCategory[category]] = count;
@@ -707,9 +754,9 @@ const firebaseServices = {
   getAcademicDocumentAnalytics: async () => {
     firebaseServices._assertReady();
     const teacher = await getActiveTeacherProfile();
-    const studentsSnapshot = await getDocs(query(collection(db, 'users'), where('department', '==', teacher.department)));
+    const studentsSnapshot = await getDocs(query(collection(db, 'users'), where('department', '==', teacher.department), where('year', '==', teacher.year)));
     const students = studentsSnapshot.docs.map((studentDoc) => ({ id: studentDoc.id, uid: studentDoc.id, ...studentDoc.data() }));
-    const academicSnapshot = await getDocs(query(collection(db, 'academicCertificates'), where('department', '==', teacher.department)));
+    const academicSnapshot = await getDocs(query(collection(db, 'academicCertificates'), where('department', '==', teacher.department), where('year', '==', teacher.year)));
     const documents = academicSnapshot.docs.map((documentSnapshot) => ({ id: documentSnapshot.id, ...documentSnapshot.data() }));
     return ACADEMIC_DOCUMENT_TYPES.map((type) => {
       const uploadedDocs = documents.filter((documentRecord) => documentRecord.title === type);

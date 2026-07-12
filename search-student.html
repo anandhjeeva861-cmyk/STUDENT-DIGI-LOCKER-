@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Search Student - Student Locker</title>
+<title>Student List - Student Locker</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 <link href="assets/css/style.css" rel="stylesheet">
 </head><body>
 <div data-layout="teacher">
-  <div class="page-header"><h2>Search Students</h2></div>
+  <div class="page-header"><h2>Student List</h2></div>
   <div class="sl-card mb-3">
     <div class="row g-2">
       <div class="col-md-4"><input id="q" class="form-control" placeholder="Search by name, register, or student ID…"></div>
@@ -57,8 +57,12 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script type="module" src="assets/js/app.js"></script><script type="module" src="assets/js/layout.js"></script><script type="module" src="assets/js/dashboard.js"></script>
 <script type="module">
+  let studentCache = [];
+  let hasStudentCache = false;
+  let unsubscribeStudents = null;
+
   async function loadStudents(){
-    return window.userService.listStudents();
+    return hasStudentCache ? studentCache : window.userService.listStudents();
   }
 
   async function lockDepartmentFilter() {
@@ -70,6 +74,18 @@
       deptSelect.disabled = true;
     } catch (error) {
       slToast(error.message || 'Teacher department is not assigned', 'error');
+    }
+  }
+
+  async function lockYearFilter() {
+    const yearSelect = document.getElementById('fYear');
+    try {
+      const year = await window.userService.getTeacherYear();
+      yearSelect.innerHTML = `<option value="${escapeHtml(year)}">${escapeHtml(window.SL_YEAR_LABELS?.[year] || year)}</option>`;
+      yearSelect.value = year;
+      yearSelect.disabled = true;
+    } catch (error) {
+      slToast(error.message || 'Teacher academic year is not assigned', 'error');
     }
   }
 
@@ -90,7 +106,7 @@
       return `
       <tr>
         <td><button class="btn btn-link p-0 text-start" data-view-student="${escapeHtml(uid)}">${escapeHtml(s.fullName || s.name || '-')}</button></td>
-        <td>${escapeHtml(s.registerNumber || s.reg || '-')}</td><td>${escapeHtml(s.department || s.dept || '-')}</td><td>${escapeHtml(s.year||'-')}</td><td>${escapeHtml(s.email||'-')}</td>
+        <td>${escapeHtml(s.registerNumber || s.reg || '-')}</td><td>${escapeHtml(s.department || s.dept || '-')}</td><td>${escapeHtml(window.SL_YEAR_LABELS?.[s.year] || s.year || '-')}</td><td>${escapeHtml(s.email||'-')}</td>
         <td class="text-nowrap">
           <button class="btn btn-sm btn-outline-primary" data-view-student="${escapeHtml(uid)}"><i class="fas fa-eye me-1"></i>View</button>
           <button class="btn btn-sm btn-outline-danger" data-delete-student="${escapeHtml(uid)}"><i class="fas fa-trash me-1"></i>Delete</button>
@@ -118,7 +134,7 @@
         <div class="col-md-4"><small class="text-muted">Full Name</small><div class="fw-semibold">${escapeHtml(student.fullName || student.name || '-')}</div></div>
         <div class="col-md-4"><small class="text-muted">Register Number</small><div class="fw-semibold">${escapeHtml(student.registerNumber || student.reg || '-')}</div></div>
         <div class="col-md-4"><small class="text-muted">Department</small><div>${escapeHtml(student.department || student.dept || '-')}</div></div>
-        <div class="col-md-4"><small class="text-muted">Year</small><div>${escapeHtml(student.year || '-')}</div></div>
+        <div class="col-md-4"><small class="text-muted">Academic Year</small><div>${escapeHtml(window.SL_YEAR_LABELS?.[student.year] || student.year || '-')}</div></div>
         <div class="col-md-4"><small class="text-muted">Email</small><div>${escapeHtml(student.email || '-')}</div></div>
         <div class="col-md-4"><small class="text-muted">Phone Number</small><div>${escapeHtml(student.phone || student.mobile || '-')}</div></div>
       </div>`;
@@ -147,6 +163,8 @@
     try {
       await window.userService.deleteStudent(id);
       slToast('Student deleted successfully', 'success');
+      studentCache = await window.userService.listStudents();
+      hasStudentCache = true;
       renderResults();
     } catch (error) {
       slToast(error.message || 'Unable to delete student', 'error');
@@ -191,6 +209,26 @@
     const button = event.target.closest('[data-preview-doc]');
     if (button) previewDocument(button.getAttribute('data-preview-doc'));
   });
-  lockDepartmentFilter().then(renderResults);
+  async function startRealtimeStudentList() {
+    await Promise.all([lockDepartmentFilter(), lockYearFilter()]);
+    try {
+      unsubscribeStudents = await window.userService.subscribeStudents((students) => {
+        studentCache = students;
+        hasStudentCache = true;
+        renderResults();
+      });
+    } catch (error) {
+      studentCache = await window.userService.listStudents();
+      hasStudentCache = true;
+      renderResults();
+      slToast(error.message || 'Realtime student sync is unavailable.', 'error');
+    }
+  }
+
+  window.addEventListener('beforeunload', () => {
+    if (typeof unsubscribeStudents === 'function') unsubscribeStudents();
+  });
+
+  startRealtimeStudentList();
 </script>
 </body></html>
