@@ -7,6 +7,7 @@ import {
   firestore as db,
   hasFirebaseConfig,
   storage,
+  authPersistenceReady,
 } from '../../src/firebase/index.js';
 
 function isPlaceholder(value) {
@@ -39,4 +40,4 @@ if (!hasFirebaseConfig() || !firebaseApp || !auth || !db || !storage) {
 window.firebaseAuth = auth;
 window.firebaseDb = db;
 window.firebaseStorage = storage;
-export { auth, db, storage };
+export { auth, authPersistenceReady, db, storage };

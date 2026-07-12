@@ -25,15 +25,29 @@ service firebase.storage {
     match /students/{studentUid}/{category}/{fileName} {
       allow read: if validOwner(studentUid)
         || (isTeacher()
+          && category == 'academicCertificates'
+          && resource.metadata.category == 'Academic Certificates'
           && resource.metadata.department == teacherProfile().department);
       allow create: if validOwner(studentUid)
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png']
-        && request.resource.metadata.department == userProfile().department;
+        && request.resource.metadata.department == userProfile().department
+        && (
+          category != 'academicCertificates'
+          || (
+            request.resource.metadata.category == 'Academic Certificates'
+            && request.resource.metadata.documentType in [
+              'Aadhaar Card',
+              'Income Certificate',
+              'Community Certificate',
+              '10th Marksheet',
+              '12th Marksheet',
+              'Bank Passbook'
+            ]
+          )
+        );
       allow update: if false;
-      allow delete: if validOwner(studentUid)
-        || (isTeacher()
-          && resource.metadata.department == teacherProfile().department);
+      allow delete: if validOwner(studentUid);
     }
   }
 }

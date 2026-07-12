@@ -68,6 +68,14 @@
   window.slSetTheme(savedTheme);
 
   window.SL_YEARS = ['I', 'II', 'III'];
+  window.SL_ACADEMIC_DOCUMENT_TYPES = window.SL_ACADEMIC_DOCUMENT_TYPES || [
+    'Aadhaar Card',
+    'Income Certificate',
+    'Community Certificate',
+    '10th Marksheet',
+    '12th Marksheet',
+    'Bank Passbook',
+  ];
   window.populateYearSelects = function populateYearSelects() {
     document.querySelectorAll('[data-year-select]').forEach((select) => {
       const current = select.value;
@@ -173,6 +181,14 @@
     return localAccounts().find((account) => account.email.toLowerCase() === normalizedEmail && account.role === role);
   };
 
+  const isAcademicDocumentType = (title = '') => window.SL_ACADEMIC_DOCUMENT_TYPES.includes(String(title).trim());
+
+  const assertAcademicDocumentType = (category, title) => {
+    if (category === 'Academic Certificates' && !isAcademicDocumentType(title)) {
+      throw new Error('Please select a valid academic document type.');
+    }
+  };
+
   const isRegisterNumberTaken = (registerNumber, ignoreUid = '') => {
     const normalized = String(registerNumber || '').trim().toLowerCase();
     if (!normalized) return false;
@@ -236,6 +252,7 @@
 
   const canTeacherAccessDocument = async (documentRecord) => {
     if (localStorage.getItem('sl_role') !== 'teacher') return true;
+    if (documentRecord?.category !== 'Academic Certificates') return false;
     const teacherDepartment = await requireTeacherDepartment();
     const documentDepartment = getDepartment(documentRecord);
     if (documentDepartment) return documentDepartment === teacherDepartment;
@@ -248,6 +265,12 @@
     if (!(await canTeacherAccessDocument(documentRecord))) {
       throw new Error('Access denied. This document belongs to another department.');
     }
+  };
+
+  const visibleDocumentsForTeacher = async (docs) => {
+    if (localStorage.getItem('sl_role') !== 'teacher') return docs;
+    const department = await requireTeacherDepartment();
+    return docs.filter((doc) => doc.category === 'Academic Certificates' && getDepartment(doc) === department);
   };
 
   window.authService = {
@@ -305,13 +328,14 @@
     },
 
     login: async (email, password, role) => {
+      const normalizedEmail = String(email || '').trim().toLowerCase();
       if (hasLiveFirebase() && window.firebaseServices?.loginWithEmailAndPassword) {
-        const user = await window.firebaseServices.loginWithEmailAndPassword(email, password, role);
+        const user = await window.firebaseServices.loginWithEmailAndPassword(normalizedEmail, password, role);
         const profile = await window.firebaseServices.getUserProfile(user.uid, role);
-        setAuthState(role, { uid: user.uid, ...(profile || { email, role }) });
-        return { uid: user.uid, email: user.email || email, role, ...(profile || {}) };
+        setAuthState(role, { uid: user.uid, ...(profile || { email: normalizedEmail, role }) });
+        return { uid: user.uid, email: user.email || normalizedEmail, role, ...(profile || {}) };
       }
-      const account = findLocalAccount(email, role);
+      const account = findLocalAccount(normalizedEmail, role);
       if (!account || account.password !== password) throw new Error('Invalid email or password.');
       setAuthState(role, account.profile);
       return account.profile;
@@ -354,7 +378,7 @@
       const accounts = localAccounts();
       const account = accounts.find((item) => item.uid === active.uid);
       if (!account) throw new Error('Account not found.');
-      account.email = newEmail.trim().toLowerCase();
+      account.email = String(newEmail || '').trim().toLowerCase();
       account.profile.email = account.email;
       saveLocalAccounts(accounts);
       setAuthState(account.role, account.profile);
@@ -466,16 +490,38 @@
       const students = await window.userService.listStudents();
       const studentIds = new Set(students.map((student) => String(student.uid || student.id)));
       const docs = window.documentService.getAllDocuments()
-        .filter((doc) => studentIds.has(String(doc.studentUid)) || getDepartment(doc) === department);
+        .filter((doc) => doc.category === 'Academic Certificates' && (studentIds.has(String(doc.studentUid)) || getDepartment(doc) === department));
       return {
         department,
         totalStudents: students.length,
         totalDocuments: docs.length,
-        personalCount: docs.filter((doc) => doc.category === 'Personal Documents').length,
-        onlineCount: docs.filter((doc) => doc.category === 'Online Certificates').length,
-        offlineCount: docs.filter((doc) => doc.category === 'Offline Certificates').length,
+        personalCount: 0,
+        onlineCount: 0,
+        offlineCount: 0,
         academicCount: docs.filter((doc) => doc.category === 'Academic Certificates').length,
       };
+    },
+
+    getAcademicDocumentAnalytics: async () => {
+      if (hasLiveFirebase() && window.firebaseServices?.getAcademicDocumentAnalytics) {
+        return window.firebaseServices.getAcademicDocumentAnalytics();
+      }
+      const students = await window.userService.listStudents();
+      const docs = await visibleDocumentsForTeacher(window.documentService.getAllDocuments());
+      return window.SL_ACADEMIC_DOCUMENT_TYPES.map((type) => {
+        const uploadedDocs = docs.filter((doc) => doc.title === type);
+        const uploadedIds = new Set(uploadedDocs.map((doc) => String(doc.studentUid)));
+        return {
+          type,
+          uploadedCount: uploadedDocs.length,
+          pendingCount: students.filter((student) => !uploadedIds.has(String(student.uid || student.id))).length,
+          uploadedStudents: uploadedDocs.map((doc) => ({
+            ...(students.find((student) => String(student.uid || student.id) === String(doc.studentUid)) || {}),
+            document: doc,
+          })),
+          pendingStudents: students.filter((student) => !uploadedIds.has(String(student.uid || student.id))),
+        };
+      });
     },
   };
 
@@ -516,10 +562,7 @@
       }
       const docs = window.documentService.getAllDocuments();
       let filtered = docs.filter((doc) => (!uid || doc.studentUid === uid) && (!category || doc.category === category));
-      if (localStorage.getItem('sl_role') === 'teacher') {
-        const department = await requireTeacherDepartment();
-        filtered = filtered.filter((doc) => getDepartment(doc) === department);
-      }
+      filtered = await visibleDocumentsForTeacher(filtered);
       return filtered;
     },
 
@@ -528,10 +571,7 @@
         return window.firebaseServices.getStudentDocuments(uid);
       }
       let docs = window.documentService.getAllDocuments().filter((doc) => String(doc.studentUid) === String(uid));
-      if (localStorage.getItem('sl_role') === 'teacher') {
-        const department = await requireTeacherDepartment();
-        docs = docs.filter((doc) => getDepartment(doc) === department);
-      }
+      docs = await visibleDocumentsForTeacher(docs);
       return docs;
     },
 
@@ -540,8 +580,13 @@
       const profile = await window.userService.getCurrentProfile('student');
       if (!active?.uid) throw new Error('Please sign in before uploading documents.');
       if (!title?.trim()) throw new Error('Please enter a document title.');
+      assertAcademicDocumentType(category, title);
       const fileError = window.validateDocumentFile(file, { maxSizeBytes: 5 * 1024 * 1024 });
       if (fileError) throw new Error(fileError);
+      const existingDocs = await window.documentService.getDocuments(active.uid, category);
+      if (category === 'Academic Certificates' && existingDocs.some((doc) => doc.title === title.trim())) {
+        throw new Error(`${title.trim()} is already uploaded for this student.`);
+      }
       if (hasLiveFirebase() && window.firebaseServices?.uploadDocument) {
         const uploaded = await window.firebaseServices.uploadDocument({ title, description, category, file });
         return uploaded.id;

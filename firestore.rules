@@ -90,6 +90,17 @@ service cloud.firestore {
       return registerNumber is string && registerNumber.size() > 0;
     }
 
+    function validAcademicDocumentType(title) {
+      return title in [
+        'Aadhaar Card',
+        'Income Certificate',
+        'Community Certificate',
+        '10th Marksheet',
+        '12th Marksheet',
+        'Bank Passbook'
+      ];
+    }
+
     function ownsExistingStudentDoc() {
       return request.auth != null && resource.data.studentUid == request.auth.uid;
     }
@@ -125,29 +136,55 @@ service cloud.firestore {
         && request.resource.data.department == teacherDepartment();
     }
 
+    function validNewDocumentCommon(category) {
+      return request.resource.data.category == category
+        && request.resource.data.studentUid is string
+        && request.resource.data.department is string
+        && request.resource.data.title is string
+        && request.resource.data.fileName is string
+        && request.resource.data.fileUrl is string
+        && validDepartment(request.resource.data.department);
+    }
+
+    function validUpdatedDocumentCommon() {
+      return request.resource.data.studentUid == resource.data.studentUid
+        && request.resource.data.department == resource.data.department
+        && request.resource.data.category == resource.data.category
+        && request.resource.data.storagePath == resource.data.storagePath;
+    }
+
     // Rules for student-specific collections
     match /onlineCertificates/{docId} {
-      allow read, delete: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
-      allow create: if (ownsNewStudentDoc() && newDocMatchesOwnerDepartment()) || teacherCanAccessNewDocDepartment();
-      allow update: if (ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment()) || teacherCanAccessExistingAndNewDocDepartment();
+      allow read, delete: if ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment();
+      allow create: if ownsNewStudentDoc() && newDocMatchesOwnerDepartment() && validNewDocumentCommon('Online Certificates');
+      allow update: if ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment() && validUpdatedDocumentCommon();
     }
 
     match /offlineCertificates/{docId} {
-      allow read, delete: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
-      allow create: if (ownsNewStudentDoc() && newDocMatchesOwnerDepartment()) || teacherCanAccessNewDocDepartment();
-      allow update: if (ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment()) || teacherCanAccessExistingAndNewDocDepartment();
+      allow read, delete: if ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment();
+      allow create: if ownsNewStudentDoc() && newDocMatchesOwnerDepartment() && validNewDocumentCommon('Offline Certificates');
+      allow update: if ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment() && validUpdatedDocumentCommon();
     }
 
     match /academicCertificates/{docId} {
-      allow read, delete: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
-      allow create: if (ownsNewStudentDoc() && newDocMatchesOwnerDepartment()) || teacherCanAccessNewDocDepartment();
-      allow update: if (ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment()) || teacherCanAccessExistingAndNewDocDepartment();
+      allow read: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
+      allow delete: if ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment();
+      allow create: if ownsNewStudentDoc()
+        && newDocMatchesOwnerDepartment()
+        && validNewDocumentCommon('Academic Certificates')
+        && validAcademicDocumentType(request.resource.data.title);
+      allow update: if ownsExistingStudentDoc()
+        && ownsNewStudentDoc()
+        && existingDocMatchesOwnerDepartment()
+        && newDocMatchesOwnerDepartment()
+        && validUpdatedDocumentCommon()
+        && validAcademicDocumentType(request.resource.data.title);
     }
 
     match /personalDocuments/{docId} {
-      allow read, delete: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
-      allow create: if (ownsNewStudentDoc() && newDocMatchesOwnerDepartment()) || teacherCanAccessNewDocDepartment();
-      allow update: if (ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment()) || teacherCanAccessExistingAndNewDocDepartment();
+      allow read, delete: if ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment();
+      allow create: if ownsNewStudentDoc() && newDocMatchesOwnerDepartment() && validNewDocumentCommon('Personal Documents');
+      allow update: if ownsExistingStudentDoc() && ownsNewStudentDoc() && existingDocMatchesOwnerDepartment() && newDocMatchesOwnerDepartment() && validUpdatedDocumentCommon();
     }
 
     match /activityLogs/{docId} {

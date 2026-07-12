@@ -1,4 +1,4 @@
-import { auth, db, storage } from './firebase-init.js';
+import { auth, authPersistenceReady, db, storage } from './firebase-init.js';
 import { createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updateEmail, updatePassword, deleteUser, onAuthStateChanged } from 'firebase/auth';
 import { setDoc, doc, getDoc, serverTimestamp, updateDoc, addDoc, collection, getDocs, query, where, deleteDoc, getCountFromServer } from 'firebase/firestore';
 import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
@@ -28,12 +28,23 @@ const DOCUMENT_CATEGORIES = [
   'Personal Documents',
 ];
 
+const TEACHER_READABLE_CATEGORIES = ['Academic Certificates'];
+const ACADEMIC_DOCUMENT_TYPES = window.SL_ACADEMIC_DOCUMENT_TYPES || [
+  'Aadhaar Card',
+  'Income Certificate',
+  'Community Certificate',
+  '10th Marksheet',
+  '12th Marksheet',
+  'Bank Passbook',
+];
+
 const buildGeneratedId = (prefix, uid = '') => {
   const uniquePart = uid ? uid.slice(0, 8).toUpperCase() : Math.random().toString(36).slice(2, 10).toUpperCase();
   return `${prefix}-${uniquePart}`;
 };
 
 const isEmail = (value = '') => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim());
+const normalizeEmail = (value = '') => String(value).trim().toLowerCase();
 
 const validatePassword = (password = '') => {
   if (password.length < 8) throw new Error('Password must be at least 8 characters long.');
@@ -87,10 +98,32 @@ const getCurrentRole = async () => {
 
 const assertTeacherCanAccessDocumentData = async (documentData, teacherProfile = null) => {
   const teacher = teacherProfile || await getActiveTeacherProfile();
+  if (documentData?.category !== 'Academic Certificates') {
+    throw new Error('Access denied. Teachers can access only Academic Certificates.');
+  }
   if (!documentData || documentData.department !== teacher.department) {
     throw new Error('Access denied. This document belongs to another department.');
   }
   return teacher;
+};
+
+const assertAcademicDocumentType = (category, title) => {
+  if (category !== 'Academic Certificates') return;
+  if (!ACADEMIC_DOCUMENT_TYPES.includes(String(title || '').trim())) {
+    throw new Error('Please select a valid academic document type.');
+  }
+};
+
+const assertNoDuplicateAcademicDocument = async (studentUid, title) => {
+  const duplicateQuery = query(
+    collection(db, 'academicCertificates'),
+    where('studentUid', '==', studentUid),
+    where('title', '==', title)
+  );
+  const duplicateSnapshot = await getDocs(duplicateQuery);
+  if (!duplicateSnapshot.empty) {
+    throw new Error(`${title} is already uploaded for this student.`);
+  }
 };
 
 const firebaseServices = {
@@ -114,7 +147,8 @@ const firebaseServices = {
 
   registerStudent: async (studentData) => {
     firebaseServices._assertReady();
-    const { email, password, fullName, department, year, mobile } = studentData;
+    const { password, fullName, department, year, mobile } = studentData;
+    const email = normalizeEmail(studentData.email);
     const registerNumber = studentData.registerNumber?.trim();
     firebaseServices._assertDepartment(department);
     firebaseServices._assertYear(year);
@@ -137,7 +171,8 @@ const firebaseServices = {
     }
     let userCredential;
     try {
-      userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      await authPersistenceReady;
+      userCredential = await createUserWithEmailAndPassword(auth, email, password);
     } catch (error) {
       if (error.code === 'auth/email-already-in-use') {
         throw new Error('This email address is already registered.');
@@ -152,7 +187,7 @@ const firebaseServices = {
         uid: user.uid,
         fullName: fullName.trim(),
         registerNumber,
-        email: email.trim(),
+        email,
         phone: mobile.trim(),
         department: department,
         year,
@@ -170,7 +205,8 @@ const firebaseServices = {
 
   registerTeacher: async (teacherData) => {
     firebaseServices._assertReady();
-    const { email, password, fullName, department, designation, phone } = teacherData;
+    const { password, fullName, department, designation, phone } = teacherData;
+    const email = normalizeEmail(teacherData.email);
     firebaseServices._assertDepartment(department);
     if (!isEmail(email)) throw new Error('Please enter a valid email address.');
     validatePassword(password);
@@ -179,7 +215,8 @@ const firebaseServices = {
     }
     let userCredential;
     try {
-      userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      await authPersistenceReady;
+      userCredential = await createUserWithEmailAndPassword(auth, email, password);
     } catch (error) {
       if (error.code === 'auth/email-already-in-use') {
         throw new Error('This email address is already registered.');
@@ -194,7 +231,7 @@ const firebaseServices = {
         uid: user.uid,
         fullName: fullName.trim(),
         teacherId: generatedTeacherId,
-        email: email.trim(),
+        email,
         phone: phone.trim(),
         department: department,
         designation: designation.trim(),
@@ -211,7 +248,11 @@ const firebaseServices = {
 
   loginWithEmailAndPassword: async (email, password, role) => {
     firebaseServices._assertReady();
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const normalizedEmail = normalizeEmail(email);
+    if (!isEmail(normalizedEmail)) throw new Error('Please enter a valid email address.');
+    if (!password) throw new Error('Please enter your password.');
+    await authPersistenceReady;
+    const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
     const user = userCredential.user;
     const collectionName = role === 'teacher' ? 'teachers' : 'users';
     const userDoc = await getDoc(doc(db, collectionName, user.uid));
@@ -266,7 +307,8 @@ const firebaseServices = {
     firebaseServices._assertReady();
     const user = auth.currentUser;
     if (!user) throw new Error('Please sign in again to update your email.');
-    const email = newEmail.trim();
+    const email = normalizeEmail(newEmail);
+    if (!isEmail(email)) throw new Error('Please enter a valid email address.');
     await updateEmail(user, email);
     const role = await firebaseServices.getUserRole(user.uid);
     if (!role) return;
@@ -288,15 +330,20 @@ const firebaseServices = {
     if (!docData.fileUrl || !docData.fileName || !docData.fileType) throw new Error('Please select a valid document file.');
     const role = await getCurrentRole();
     if (role === 'teacher') {
-      await assertTeacherCanAccessDocumentData(docData);
+      throw new Error('Teachers cannot upload student documents.');
     } else if (auth.currentUser && String(docData.studentUid) !== String(auth.currentUser.uid)) {
       throw new Error('You can upload documents only to your own profile.');
     }
     firebaseServices._assertDepartment(docData.department);
     const collectionName = getCollectionName(docData.category);
+    const title = docData.title.trim();
+    assertAcademicDocumentType(docData.category, title);
+    if (docData.category === 'Academic Certificates') {
+      await assertNoDuplicateAcademicDocument(docData.studentUid, title);
+    }
     await addDoc(collection(db, collectionName), {
       ...docData,
-      title: docData.title.trim(),
+      title,
       description: docData.description?.trim() || '',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -307,7 +354,12 @@ const firebaseServices = {
     firebaseServices._assertReady();
     const activeStudent = await getActiveStudentProfile();
     if (!file) throw new Error('Please select a valid document file.');
-    if (!title?.trim()) throw new Error('Please enter a document title.');
+    const documentTitle = String(title || '').trim();
+    if (!documentTitle) throw new Error('Please select a document type.');
+    assertAcademicDocumentType(category, documentTitle);
+    if (category === 'Academic Certificates') {
+      await assertNoDuplicateAcademicDocument(activeStudent.uid, documentTitle);
+    }
     const collectionName = getCollectionName(category);
     const storagePath = `students/${activeStudent.uid}/${collectionName}/${Date.now()}-${safeFileName(file.name)}`;
     const fileRef = ref(storage, storagePath);
@@ -317,11 +369,12 @@ const firebaseServices = {
         studentUid: activeStudent.uid,
         department: activeStudent.department,
         category,
+        documentType: documentTitle,
       },
     });
     const fileUrl = await getDownloadURL(fileRef);
     const documentRecord = {
-      title,
+      title: documentTitle,
       description,
       category,
       fileName: file.name,
@@ -340,7 +393,7 @@ const firebaseServices = {
     };
     const documentRef = await addDoc(collection(db, collectionName), {
       ...documentRecord,
-      title: title.trim(),
+      title: documentTitle,
       description: description.trim(),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -352,6 +405,9 @@ const firebaseServices = {
     firebaseServices._assertReady();
     const collectionName = getCollectionName(category);
     const role = await getCurrentRole();
+    if (role === 'teacher' && !TEACHER_READABLE_CATEGORIES.includes(category)) {
+      throw new Error('Access denied. Teachers can access only Academic Certificates.');
+    }
     let docsQuery = query(collection(db, collectionName), where("studentUid", "==", uid));
     if (role === 'teacher') {
       const teacher = await getActiveTeacherProfile();
@@ -370,14 +426,18 @@ const firebaseServices = {
 
   getDocumentById: async (docId, options = {}) => {
     firebaseServices._assertReady();
-    const categories = options.category ? [options.category] : DOCUMENT_CATEGORIES;
+    const role = await getCurrentRole();
+    const categories = options.category
+      ? [options.category]
+      : role === 'teacher'
+        ? TEACHER_READABLE_CATEGORIES
+        : DOCUMENT_CATEGORIES;
     for (const category of categories) {
       const collectionName = getCollectionName(category);
       const documentSnapshot = await getDoc(doc(db, collectionName, docId));
       if (!documentSnapshot.exists()) continue;
       const data = documentSnapshot.data();
       if (options.uid && String(data.studentUid) !== String(options.uid)) return null;
-      const role = await getCurrentRole();
       if (role === 'teacher') {
         await assertTeacherCanAccessDocumentData(data);
       } else if (auth.currentUser && String(data.studentUid) !== String(auth.currentUser.uid)) {
@@ -394,12 +454,10 @@ const firebaseServices = {
     const currentSnapshot = await getDoc(doc(db, collectionName, docId));
     if (!currentSnapshot.exists()) throw new Error('Document not found.');
     const currentData = currentSnapshot.data();
+    assertAcademicDocumentType(category, data.title || currentData.title);
     const role = await getCurrentRole();
     if (role === 'teacher') {
-      await assertTeacherCanAccessDocumentData(currentData);
-      if (data.department && data.department !== currentData.department) {
-        throw new Error('Document department cannot be changed.');
-      }
+      throw new Error('Teachers cannot update student documents.');
     } else if (auth.currentUser && String(currentData.studentUid) !== String(auth.currentUser.uid)) {
       throw new Error('Access denied. You can update only your own documents.');
     }
@@ -414,7 +472,7 @@ const firebaseServices = {
     const currentData = currentSnapshot.data();
     const role = await getCurrentRole();
     if (role === 'teacher') {
-      await assertTeacherCanAccessDocumentData(currentData);
+      throw new Error('Teachers cannot delete student documents.');
     } else if (auth.currentUser && String(currentData.studentUid) !== String(auth.currentUser.uid)) {
       throw new Error('Access denied. You can delete only your own documents.');
     }
@@ -522,7 +580,7 @@ const firebaseServices = {
     } else if (auth.currentUser) {
       throw new Error('Access denied. You can view only your own documents.');
     }
-    const categories = DOCUMENT_CATEGORIES;
+    const categories = teacher ? TEACHER_READABLE_CATEGORIES : DOCUMENT_CATEGORIES;
     const allDocuments = {};
     for (const category of categories) {
       const collectionName = getCollectionName(category);
@@ -550,7 +608,7 @@ const firebaseServices = {
     } else if (auth.currentUser) {
       throw new Error('Access denied. You can view only your own documents.');
     }
-    const categories = DOCUMENT_CATEGORIES;
+    const categories = teacher ? TEACHER_READABLE_CATEGORIES : DOCUMENT_CATEGORIES;
     const allDocuments = [];
     for (const category of categories) {
       const collectionName = getCollectionName(category);
@@ -583,7 +641,8 @@ const firebaseServices = {
 
   getDashboardStats: async (uid = auth.currentUser?.uid) => {
     firebaseServices._assertReady();
-    const categories = DOCUMENT_CATEGORIES;
+    const role = await getCurrentRole();
+    const categories = role === 'teacher' ? TEACHER_READABLE_CATEGORIES : DOCUMENT_CATEGORIES;
     const profile = uid && auth.currentUser && String(uid) === String(auth.currentUser.uid)
       ? await getActiveStudentProfile()
       : null;
@@ -618,7 +677,7 @@ const firebaseServices = {
     firebaseServices._assertReady();
     const teacher = await getActiveTeacherProfile();
     const studentSnapshot = await getCountFromServer(query(collection(db, "users"), where("department", "==", teacher.department)));
-    const categories = DOCUMENT_CATEGORIES;
+    const categories = TEACHER_READABLE_CATEGORIES;
     const counts = {
       department: teacher.department,
       totalStudents: studentSnapshot.data().count,
@@ -645,6 +704,34 @@ const firebaseServices = {
     return counts;
   },
 
+  getAcademicDocumentAnalytics: async () => {
+    firebaseServices._assertReady();
+    const teacher = await getActiveTeacherProfile();
+    const studentsSnapshot = await getDocs(query(collection(db, 'users'), where('department', '==', teacher.department)));
+    const students = studentsSnapshot.docs.map((studentDoc) => ({ id: studentDoc.id, uid: studentDoc.id, ...studentDoc.data() }));
+    const academicSnapshot = await getDocs(query(collection(db, 'academicCertificates'), where('department', '==', teacher.department)));
+    const documents = academicSnapshot.docs.map((documentSnapshot) => ({ id: documentSnapshot.id, ...documentSnapshot.data() }));
+    return ACADEMIC_DOCUMENT_TYPES.map((type) => {
+      const uploadedDocs = documents.filter((documentRecord) => documentRecord.title === type);
+      const uploadedStudentIds = new Set(uploadedDocs.map((documentRecord) => String(documentRecord.studentUid)));
+      const uploadedStudents = uploadedDocs.map((documentRecord) => {
+        const student = students.find((item) => String(item.uid || item.id) === String(documentRecord.studentUid)) || {};
+        return {
+          ...student,
+          document: documentRecord,
+        };
+      });
+      const pendingStudents = students.filter((student) => !uploadedStudentIds.has(String(student.uid || student.id)));
+      return {
+        type,
+        uploadedCount: uploadedStudents.length,
+        pendingCount: pendingStudents.length,
+        uploadedStudents,
+        pendingStudents,
+      };
+    });
+  },
+
   getDocumentTotals: async () => {
     firebaseServices._assertReady();
     const categories = DOCUMENT_CATEGORIES;
@@ -666,7 +753,7 @@ const firebaseServices = {
 
   sendPasswordReset: async (email) => {
     firebaseServices._assertReady();
-    await sendPasswordResetEmail(auth, email);
+    await sendPasswordResetEmail(auth, normalizeEmail(email));
   },
 
   waitForAuthUser: async () => {

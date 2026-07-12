@@ -34,7 +34,7 @@
                 </div>
                 <div class="modal-body">
                     <form id="uploadForm">
-                        <div class="mb-3"><label class="form-label">Document Title</label><input type="text" name="title" class="form-control" required></div>
+                        <div class="mb-3"><label class="form-label">Document Type</label><select name="title" class="form-select" data-academic-document-type-select required><option value="">Select Document Type</option></select></div>
                         <div class="mb-3"><label class="form-label">Description</label><textarea name="description" class="form-control"></textarea></div>
                         <div class="mb-3"><label class="form-label">File</label><input type="file" name="file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required></div>
                         <div class="progress mb-3 d-none" data-upload-progress><div class="progress-bar" style="width:0%"></div></div>
@@ -114,6 +114,10 @@
             const description = e.target.description.value;
             const file = e.target.file.files[0];
 
+            if (!window.SL_ACADEMIC_DOCUMENT_TYPES.includes(title)) {
+                slToast('Please select a valid academic document type.', 'error');
+                return;
+            }
             if (!file) {
                 slToast('Please select a file', 'error');
                 return;
