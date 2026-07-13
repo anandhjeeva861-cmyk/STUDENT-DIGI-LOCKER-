@@ -49,7 +49,12 @@ service firebase.storage {
           )
         );
       allow update: if false;
-      allow delete: if validOwner(studentUid);
+      allow delete: if validOwner(studentUid)
+        || (isTeacher()
+          && category == 'academicCertificates'
+          && resource.metadata.category == 'Academic Certificates'
+          && resource.metadata.department == teacherProfile().department
+          && resource.metadata.year == teacherProfile().year);
     }
   }
 }

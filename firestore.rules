@@ -275,7 +275,7 @@ service cloud.firestore {
 
     match /academicCertificates/{docId} {
       allow read: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
-      allow delete: if ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment();
+      allow delete: if (ownsExistingStudentDoc() && existingDocMatchesOwnerDepartment()) || teacherCanAccessExistingDocDepartment();
       allow create: if ownsNewStudentDoc()
         && newDocMatchesOwnerDepartment()
         && validNewDocumentCommon('Academic Certificates')

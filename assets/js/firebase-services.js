@@ -484,13 +484,29 @@ const firebaseServices = {
       year: normalizeYear(activeStudent.year || ''),
       status: 'uploaded',
     };
-    const documentRef = await addDoc(collection(db, collectionName), {
-      ...documentRecord,
-      title: documentTitle,
-      description: description.trim(),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    let documentRef;
+    try {
+      documentRef = await addDoc(collection(db, collectionName), {
+        ...documentRecord,
+        title: documentTitle,
+        description: description.trim(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('[firebase-services] Document metadata write failed after storage upload.', {
+        code: error?.code,
+        message: error?.message,
+        storagePath,
+        details: error,
+      });
+      await deleteObject(fileRef).catch((deleteError) => {
+        if (deleteError?.code !== 'storage/object-not-found') {
+          console.warn('[firebase-services] Uploaded file rollback failed.', deleteError);
+        }
+      });
+      throw new Error('File uploaded, but document details could not be saved. The upload was rolled back. Please try again.');
+    }
     return { id: documentRef.id, ...documentRecord };
   },
 
@@ -565,7 +581,10 @@ const firebaseServices = {
     const currentData = currentSnapshot.data();
     const role = await getCurrentRole();
     if (role === 'teacher') {
-      throw new Error('Teachers cannot delete student documents.');
+      if (category !== 'Academic Certificates') {
+        throw new Error('Teachers can delete only Academic Certificates.');
+      }
+      await assertTeacherCanAccessDocumentData(currentData);
     } else if (auth.currentUser && String(currentData.studentUid) !== String(auth.currentUser.uid)) {
       throw new Error('Access denied. You can delete only your own documents.');
     }
