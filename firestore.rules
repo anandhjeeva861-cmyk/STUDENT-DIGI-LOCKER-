@@ -111,6 +111,7 @@ service cloud.firestore {
         'registerNumber',
         'department',
         'year',
+        'status',
         'createdAt',
         'updatedAt'
       ])
@@ -124,6 +125,7 @@ service cloud.firestore {
         'phone',
         'mobile',
         'studentId',
+        'status',
         'role',
         'createdBy',
         'profilePhotoUrl',
@@ -136,7 +138,8 @@ service cloud.firestore {
       && request.resource.data.email is string
       && request.resource.data.uid.size() > 0
       && request.resource.data.fullName.size() > 0
-      && request.resource.data.email.size() > 0;
+      && request.resource.data.email.size() > 0
+      && validStudentStatus(request.resource.data.status);
     }
 
     function validStudentProfileUpdate(userId) {
@@ -179,6 +182,10 @@ service cloud.firestore {
       return request.resource.data.uid == resource.data.uid
         && request.resource.data.createdAt == resource.data.createdAt
         && validTeacherProfileCreate();
+    }
+
+    function validStudentStatus(status) {
+      return status in ['active', 'inactive', 'pending'];
     }
 
     function validAcademicDocumentType(title) {
@@ -238,6 +245,7 @@ service cloud.firestore {
         && request.resource.data.title is string
         && request.resource.data.fileName is string
         && request.resource.data.fileUrl is string
+        && (!('status' in request.resource.data) || request.resource.data.status in ['uploaded', 'verified', 'rejected', 'pending'])
         && validDepartment(request.resource.data.department)
         && validYear(request.resource.data.year);
     }

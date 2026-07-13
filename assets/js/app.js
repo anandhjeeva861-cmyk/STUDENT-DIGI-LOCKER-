@@ -213,15 +213,22 @@
     return accountMatch || studentMatch;
   };
 
-  const assertValidYear = (year) => {
-    if (!window.SL_YEARS.includes(year)) throw new Error('Please select a valid year.');
+  const normalizeYear = (value = '') => String(value).trim().toUpperCase();
+  const normalizeDepartment = (value = '') => {
+    const raw = String(value).trim();
+    return window.SL_DEPARTMENTS?.find((department) => department.toLowerCase() === raw.toLowerCase()) || raw;
   };
 
-  const getDepartment = (record = {}) => record.department || record.dept || '';
+  const assertValidYear = (year) => {
+    if (!window.SL_YEARS.includes(normalizeYear(year))) throw new Error('Please select a valid year.');
+  };
+
+  const getDepartment = (record = {}) => normalizeDepartment(record.department || record.dept || '');
 
   const assertValidDepartment = (department) => {
-    if (!department) throw new Error('Please select a department.');
-    if (window.SL_DEPARTMENTS?.length && !window.SL_DEPARTMENTS.includes(department)) {
+    const normalizedDepartment = normalizeDepartment(department);
+    if (!normalizedDepartment) throw new Error('Please select a department.');
+    if (window.SL_DEPARTMENTS?.length && !window.SL_DEPARTMENTS.includes(normalizedDepartment)) {
       throw new Error('Please select a valid department.');
     }
   };
@@ -242,7 +249,7 @@
 
   const requireTeacherYear = async () => {
     const profile = await currentTeacherProfile();
-    const year = profile?.year || '';
+    const year = normalizeYear(profile?.year || '');
     if (!year) throw new Error('Teacher academic year is not assigned.');
     return year;
   };
@@ -251,7 +258,7 @@
     if (localStorage.getItem('sl_role') !== 'teacher') return true;
     const department = await requireTeacherDepartment();
     const year = await requireTeacherYear();
-    return getDepartment(student) === department && student?.year === year;
+    return getDepartment(student) === department && normalizeYear(student?.year) === year;
   };
 
   const assertTeacherCanAccessStudent = async (student) => {
@@ -273,10 +280,10 @@
     const teacherDepartment = await requireTeacherDepartment();
     const teacherYear = await requireTeacherYear();
     const documentDepartment = getDepartment(documentRecord);
-    if (documentDepartment && documentRecord?.year) return documentDepartment === teacherDepartment && documentRecord.year === teacherYear;
+    if (documentDepartment && documentRecord?.year) return documentDepartment === teacherDepartment && normalizeYear(documentRecord.year) === teacherYear;
     if (!documentRecord?.studentUid) return false;
     const student = await findLocalStudent(documentRecord.studentUid);
-    return getDepartment(student || {}) === teacherDepartment && student?.year === teacherYear;
+    return getDepartment(student || {}) === teacherDepartment && normalizeYear(student?.year) === teacherYear;
   };
 
   const assertTeacherCanAccessDocument = async (documentRecord) => {
@@ -289,7 +296,7 @@
     if (localStorage.getItem('sl_role') !== 'teacher') return docs;
     const department = await requireTeacherDepartment();
     const year = await requireTeacherYear();
-    return docs.filter((doc) => doc.category === 'Academic Certificates' && getDepartment(doc) === department && doc.year === year);
+    return docs.filter((doc) => doc.category === 'Academic Certificates' && getDepartment(doc) === department && normalizeYear(doc.year) === year);
   };
 
   window.authService = {
@@ -301,21 +308,24 @@
       const email = String(studentData.email || '').trim().toLowerCase();
       if (findLocalAccount(email, 'student')) throw new Error('This email address is already registered.');
       const registerNumber = String(studentData.registerNumber || '').trim();
+      const department = normalizeDepartment(studentData.department);
+      const year = normalizeYear(studentData.year);
       if (!registerNumber) throw new Error('Register number is required.');
       if (isRegisterNumberTaken(registerNumber)) throw new Error('This register number is already registered.');
-      assertValidDepartment(studentData.department);
-      assertValidYear(studentData.year);
+      assertValidDepartment(department);
+      assertValidYear(year);
       const uid = `student-${Date.now()}`;
       const profile = normalizeProfile('student', {
         uid,
-        fullName: studentData.fullName,
+        fullName: String(studentData.fullName || '').trim(),
         email,
-        phone: studentData.mobile,
-        mobile: studentData.mobile,
-        department: studentData.department,
-        year: studentData.year,
+        phone: String(studentData.mobile || '').trim(),
+        mobile: String(studentData.mobile || '').trim(),
+        department,
+        year,
         registerNumber,
         studentId: registerNumber,
+        status: 'active',
       });
       const accounts = localAccounts();
       accounts.push({ uid, email, password: studentData.password, role: 'student', profile });
@@ -329,17 +339,19 @@
         return { uid: user.uid, email: user.email, role: 'teacher' };
       }
       const email = String(teacherData.email || '').trim().toLowerCase();
+      const department = normalizeDepartment(teacherData.department);
+      const year = normalizeYear(teacherData.year);
       if (findLocalAccount(email, 'teacher')) throw new Error('This email address is already registered.');
-      assertValidDepartment(teacherData.department);
-      assertValidYear(teacherData.year);
+      assertValidDepartment(department);
+      assertValidYear(year);
       const uid = `teacher-${Date.now()}`;
       const profile = normalizeProfile('teacher', {
         uid,
-        fullName: teacherData.fullName,
+        fullName: String(teacherData.fullName || '').trim(),
         email,
-        phone: teacherData.phone,
-        department: teacherData.department,
-        year: teacherData.year,
+        phone: String(teacherData.phone || '').trim(),
+        department,
+        year,
       });
       const accounts = localAccounts();
       accounts.push({ uid, email, password: teacherData.password, role: 'teacher', profile });
@@ -428,15 +440,17 @@
       if (localStorage.getItem('sl_role') === 'teacher') {
         const teacherDepartment = await requireTeacherDepartment();
         const teacherYear = await requireTeacherYear();
-        if (studentData.department && studentData.department !== teacherDepartment) {
+        if (studentData.department && normalizeDepartment(studentData.department) !== teacherDepartment) {
           throw new Error('You can add students only to your assigned department.');
         }
-        if (studentData.year && studentData.year !== teacherYear) {
+        if (studentData.year && normalizeYear(studentData.year) !== teacherYear) {
           throw new Error('You can add students only to your assigned academic year.');
         }
         studentData.department = teacherDepartment;
         studentData.year = teacherYear;
       }
+      studentData.department = normalizeDepartment(studentData.department);
+      studentData.year = normalizeYear(studentData.year);
       assertValidDepartment(studentData.department);
       if (hasLiveFirebase() && window.firebaseServices?.addStudentProfile) {
         return window.firebaseServices.addStudentProfile(studentData);
@@ -458,8 +472,10 @@
         dept: studentData.department,
         year: studentData.year,
         studentId: studentData.studentId,
-        email: studentData.email,
-        phone: studentData.phone || '',
+        email: String(studentData.email || '').trim().toLowerCase(),
+        phone: String(studentData.phone || '').trim(),
+        mobile: String(studentData.mobile || studentData.phone || '').trim(),
+        status: 'active',
         role: 'student',
       };
       students.push(record);
@@ -480,7 +496,7 @@
       if (localStorage.getItem('sl_role') !== 'teacher') return students;
       const department = await requireTeacherDepartment();
       const year = await requireTeacherYear();
-      return students.filter((student) => getDepartment(student) === department && student.year === year);
+      return students.filter((student) => getDepartment(student) === department && normalizeYear(student.year) === year);
     },
 
     getTeacherDepartment: async () => requireTeacherDepartment(),
@@ -526,7 +542,7 @@
       const students = await window.userService.listStudents();
       const studentIds = new Set(students.map((student) => String(student.uid || student.id)));
       const docs = window.documentService.getAllDocuments()
-        .filter((doc) => doc.category === 'Academic Certificates' && (studentIds.has(String(doc.studentUid)) || getDepartment(doc) === department));
+        .filter((doc) => doc.category === 'Academic Certificates' && normalizeYear(doc.year) === year && (studentIds.has(String(doc.studentUid)) || getDepartment(doc) === department));
       return {
         department,
         year,
@@ -663,8 +679,9 @@
         studentUid: active.uid,
         studentName: profile?.fullName || profile?.name || active.name || '',
         registerNumber: profile?.registerNumber || profile?.reg || '',
-        department: profile?.department || profile?.dept || '',
-        year: profile?.year || '',
+        department: normalizeDepartment(profile?.department || profile?.dept || ''),
+        year: normalizeYear(profile?.year || ''),
+        status: 'uploaded',
         createdAt: new Date().toISOString(),
       };
       docs.push(doc);

@@ -116,7 +116,7 @@
     document.getElementById('analyticsListBody').innerHTML = rows.length ? `
       <div class="table-responsive">
         <table class="table">
-          <thead><tr><th>Student</th><th>Register</th><th>Year</th>${isUploaded ? '<th>Actions</th>' : ''}</tr></thead>
+          <thead><tr><th>Student</th><th>Register</th><th>Year</th>${isUploaded ? '<th>Status</th><th>Actions</th>' : ''}</tr></thead>
           <tbody>
             ${rows.map((student) => {
               const documentId = student.document?.id || '';
@@ -125,6 +125,7 @@
                 <td>${escapeHtml(studentName(student))}</td>
                 <td>${escapeHtml(student.registerNumber || student.reg || '-')}</td>
                 <td>${escapeHtml(student.year || '-')}</td>
+                ${isUploaded ? `<td><span class="badge-info">${escapeHtml(student.document?.status || 'uploaded')}</span></td>` : ''}
                 ${isUploaded ? `<td class="text-nowrap">
                   <button class="btn btn-sm btn-outline-primary" data-preview-doc="${escapeHtml(documentId)}"><i class="fas fa-eye me-1"></i>View</button>
                   <a class="btn btn-sm btn-outline-secondary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" download="${escapeHtml(student.document?.fileName || student.document?.filename || type)}"><i class="fas fa-download me-1"></i>Download</a>

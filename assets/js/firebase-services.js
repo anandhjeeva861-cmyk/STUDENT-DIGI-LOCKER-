@@ -45,6 +45,11 @@ const buildGeneratedId = (prefix, uid = '') => {
 
 const isEmail = (value = '') => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim());
 const normalizeEmail = (value = '') => String(value).trim().toLowerCase();
+const normalizeDepartment = (value = '') => {
+  const raw = String(value).trim();
+  return VALID_DEPARTMENTS.find((department) => department.toLowerCase() === raw.toLowerCase()) || raw;
+};
+const normalizeYear = (value = '') => String(value).trim().toUpperCase();
 
 const friendlyAuthError = (error) => {
   switch (error?.code) {
@@ -151,20 +156,23 @@ const firebaseServices = {
   },
 
   _assertDepartment: (department) => {
-    if (!department) throw new Error('Please select a department.');
-    if (VALID_DEPARTMENTS.length && !VALID_DEPARTMENTS.includes(department)) {
+    const normalizedDepartment = normalizeDepartment(department);
+    if (!normalizedDepartment) throw new Error('Please select a department.');
+    if (VALID_DEPARTMENTS.length && !VALID_DEPARTMENTS.includes(normalizedDepartment)) {
       throw new Error('Please select a valid department.');
     }
   },
 
   _assertYear: (year) => {
-    if (!VALID_YEARS.includes(year)) throw new Error('Please select a valid year.');
+    if (!VALID_YEARS.includes(normalizeYear(year))) throw new Error('Please select a valid year.');
   },
 
   registerStudent: async (studentData) => {
     firebaseServices._assertReady();
-    const { password, fullName, department, year, mobile } = studentData;
+    const { password, fullName, mobile } = studentData;
     const email = normalizeEmail(studentData.email);
+    const department = normalizeDepartment(studentData.department);
+    const year = normalizeYear(studentData.year);
     const registerNumber = studentData.registerNumber?.trim();
     firebaseServices._assertDepartment(department);
     firebaseServices._assertYear(year);
@@ -176,7 +184,7 @@ const firebaseServices = {
     const duplicateRegisterQuery = query(
       collection(db, "users"),
       where("registerNumber", "==", registerNumber),
-      where("department", "==", studentData.department)
+      where("department", "==", department)
     );
     try {
       const registerSnapshot = await getDocs(duplicateRegisterQuery);
@@ -205,9 +213,11 @@ const firebaseServices = {
         registerNumber,
         email,
         phone: mobile.trim(),
-        department: department,
+        mobile: mobile.trim(),
+        department,
         year,
         studentId: generatedStudentId,
+        status: 'active',
         role: 'student',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -221,8 +231,10 @@ const firebaseServices = {
 
   registerTeacher: async (teacherData) => {
     firebaseServices._assertReady();
-    const { password, fullName, department, year, phone } = teacherData;
+    const { password, fullName, phone } = teacherData;
     const email = normalizeEmail(teacherData.email);
+    const department = normalizeDepartment(teacherData.department);
+    const year = normalizeYear(teacherData.year);
     firebaseServices._assertDepartment(department);
     firebaseServices._assertYear(year);
     if (!isEmail(email)) throw new Error('Please enter a valid email address.');
@@ -250,7 +262,7 @@ const firebaseServices = {
         teacherId: generatedTeacherId,
         email,
         phone: phone.trim(),
-        department: department,
+        department,
         year,
         role: 'teacher',
         createdAt: serverTimestamp(),
@@ -318,11 +330,14 @@ const firebaseServices = {
     if (role === 'student') {
       delete sanitized.registerNumber;
       delete sanitized.studentId;
+      sanitized.status = sanitized.status || 'active';
     }
     if (role === 'teacher') {
       delete sanitized.teacherId;
       if (sanitized.year) firebaseServices._assertYear(sanitized.year);
     }
+    if (sanitized.department) sanitized.department = normalizeDepartment(sanitized.department);
+    if (sanitized.year) sanitized.year = normalizeYear(sanitized.year);
     await updateDoc(doc(db, collectionName, uid), { ...sanitized, updatedAt: serverTimestamp() });
   },
 
@@ -336,7 +351,11 @@ const firebaseServices = {
     const role = await firebaseServices.getUserRole(user.uid);
     if (!role) return;
     const collectionName = role === 'teacher' ? 'teachers' : 'users';
-    await updateDoc(doc(db, collectionName, user.uid), { email, updatedAt: serverTimestamp() });
+    await updateDoc(doc(db, collectionName, user.uid), {
+      email,
+      ...(role === 'student' ? { status: 'active' } : {}),
+      updatedAt: serverTimestamp(),
+    });
   },
 
   updateUserPassword: async (newPassword) => {
@@ -357,7 +376,10 @@ const firebaseServices = {
     } else if (auth.currentUser && String(docData.studentUid) !== String(auth.currentUser.uid)) {
       throw new Error('You can upload documents only to your own profile.');
     }
+    docData.department = normalizeDepartment(docData.department);
+    docData.year = normalizeYear(docData.year || '');
     firebaseServices._assertDepartment(docData.department);
+    if (docData.year) firebaseServices._assertYear(docData.year);
     const collectionName = getCollectionName(docData.category);
     const title = docData.title.trim();
     assertAcademicDocumentType(docData.category, title);
@@ -368,6 +390,7 @@ const firebaseServices = {
       ...docData,
       title,
       description: docData.description?.trim() || '',
+      status: docData.status || 'uploaded',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -412,8 +435,9 @@ const firebaseServices = {
       studentUid: activeStudent.uid,
       studentName: activeStudent.fullName || activeStudent.name || '',
       registerNumber: activeStudent.registerNumber || activeStudent.reg || '',
-      department: activeStudent.department,
-      year: activeStudent.year || '',
+      department: normalizeDepartment(activeStudent.department),
+      year: normalizeYear(activeStudent.year || ''),
+      status: 'uploaded',
     };
     const documentRef = await addDoc(collection(db, collectionName), {
       ...documentRecord,
@@ -566,15 +590,17 @@ const firebaseServices = {
     firebaseServices._assertReady();
     if (auth.currentUser && await firebaseServices.getUserRole(auth.currentUser.uid) === 'teacher') {
       const teacher = await getActiveTeacherProfile();
-      if (studentData.department && studentData.department !== teacher.department) {
+      if (studentData.department && normalizeDepartment(studentData.department) !== teacher.department) {
         throw new Error('You can add students only to your assigned department.');
       }
-      if (studentData.year && studentData.year !== teacher.year) {
+      if (studentData.year && normalizeYear(studentData.year) !== teacher.year) {
         throw new Error('You can add students only to your assigned academic year.');
       }
       studentData.department = teacher.department;
       studentData.year = teacher.year;
     }
+    studentData.department = normalizeDepartment(studentData.department);
+    studentData.year = normalizeYear(studentData.year);
     firebaseServices._assertDepartment(studentData.department);
     firebaseServices._assertYear(studentData.year);
     const registerNumber = studentData.registerNumber?.trim();
@@ -603,9 +629,11 @@ const firebaseServices = {
       registerNumber,
       email: studentData.email?.trim() || '',
       phone: studentData.phone?.trim() || studentData.mobile?.trim() || '',
+      mobile: studentData.mobile?.trim() || studentData.phone?.trim() || '',
       department: studentData.department,
       year: studentData.year,
       studentId: studentId || '',
+      status: 'active',
       role: 'student',
       createdBy: auth.currentUser?.uid || null,
       createdAt: serverTimestamp(),
