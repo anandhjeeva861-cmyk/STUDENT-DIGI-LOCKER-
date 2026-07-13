@@ -787,6 +787,7 @@
         slToast('Registration successful. Please wait for verification.', 'success');
         setTimeout(()=>window.location.href = 'index.html', 500);
       } catch (error) {
+        console.error('[app] Student registration failed.', error);
         slToast(error.message || 'Registration failed', 'error');
       }
     });

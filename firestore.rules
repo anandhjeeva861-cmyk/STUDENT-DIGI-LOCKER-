@@ -109,8 +109,10 @@ service cloud.firestore {
         'fullName',
         'email',
         'registerNumber',
+        'phone',
         'department',
         'year',
+        'role',
         'status',
         'createdAt',
         'updatedAt'

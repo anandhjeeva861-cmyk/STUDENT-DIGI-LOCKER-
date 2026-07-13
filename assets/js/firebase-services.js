@@ -73,6 +73,14 @@ const validatePassword = (password = '') => {
   }
 };
 
+const logFirestoreWriteError = (operation, error) => {
+  console.error(`[firebase-services] ${operation} failed.`, {
+    code: error?.code,
+    message: error?.message,
+    details: error,
+  });
+};
+
 const getActiveTeacherProfile = async () => {
   firebaseServices._assertReady();
   const user = auth.currentUser;
@@ -230,26 +238,32 @@ const firebaseServices = {
     }
     const user = userCredential.user;
     const generatedStudentId = buildGeneratedId('STU', user.uid);
+    const studentProfile = {
+      uid: user.uid,
+      fullName: fullName.trim(),
+      registerNumber,
+      email,
+      phone: mobile.trim(),
+      mobile: mobile.trim(),
+      department,
+      year,
+      studentId: generatedStudentId,
+      status: 'active',
+      role: 'student',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    try {
+      await setDoc(doc(db, "users", user.uid), studentProfile);
+    } catch (error) {
+      logFirestoreWriteError(`Student profile write to users/${user.uid}`, error);
+      await deleteUser(user).catch(() => {});
+      throw new Error('Student account was created, but the profile could not be saved. Please contact support or try again.');
+    }
     try {
       await sendEmailVerification(user);
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        fullName: fullName.trim(),
-        registerNumber,
-        email,
-        phone: mobile.trim(),
-        mobile: mobile.trim(),
-        department,
-        year,
-        studentId: generatedStudentId,
-        status: 'active',
-        role: 'student',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
     } catch (error) {
-      await deleteUser(user).catch(() => {});
-      throw error;
+      console.warn('[firebase-services] Student email verification could not be sent. Profile was saved successfully.', error);
     }
     return user;
   },
@@ -279,23 +293,29 @@ const firebaseServices = {
     }
     const user = userCredential.user;
     const generatedTeacherId = buildGeneratedId('TCH', user.uid);
+    const teacherProfile = {
+      uid: user.uid,
+      fullName: fullName.trim(),
+      teacherId: generatedTeacherId,
+      email,
+      phone: phone.trim(),
+      department,
+      year,
+      role: 'teacher',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    try {
+      await setDoc(doc(db, "teachers", user.uid), teacherProfile);
+    } catch (error) {
+      logFirestoreWriteError(`Teacher profile write to teachers/${user.uid}`, error);
+      await deleteUser(user).catch(() => {});
+      throw new Error('Teacher account was created, but the profile could not be saved. Please contact support or try again.');
+    }
     try {
       await sendEmailVerification(user);
-      await setDoc(doc(db, "teachers", user.uid), {
-        uid: user.uid,
-        fullName: fullName.trim(),
-        teacherId: generatedTeacherId,
-        email,
-        phone: phone.trim(),
-        department,
-        year,
-        role: 'teacher',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
     } catch (error) {
-      await deleteUser(user).catch(() => {});
-      throw error;
+      console.warn('[firebase-services] Teacher email verification could not be sent. Profile was saved successfully.', error);
     }
     return user;
   },
