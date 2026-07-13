@@ -214,17 +214,16 @@ const firebaseServices = {
     if (!email || !password || !fullName || !department || !year || !mobile || !registerNumber) {
       throw new Error('Please complete all required student registration fields.');
     }
-    const duplicateRegisterQuery = query(
-      collection(db, "users"),
-      where("registerNumber", "==", registerNumber),
-      where("department", "==", department)
-    );
-    try {
+    if (auth.currentUser && await firebaseServices.getUserRole(auth.currentUser.uid) === 'teacher') {
+      const duplicateRegisterQuery = query(
+        collection(db, "users"),
+        where("role", "==", "student"),
+        where("registerNumber", "==", registerNumber),
+        where("department", "==", department),
+        where("year", "==", year)
+      );
       const registerSnapshot = await getDocs(duplicateRegisterQuery);
       if (!registerSnapshot.empty) throw new Error('This register number is already registered.');
-    } catch (error) {
-      if (error.message === 'This register number is already registered.') throw error;
-      console.warn('[firebase-services] Register number pre-check skipped by Firestore rules.', error);
     }
     let userCredential;
     try {
@@ -343,7 +342,7 @@ const firebaseServices = {
       }
     } else {
       await signOut(auth);
-      throw new Error("User data not found. Please contact the administrator.");
+      throw new Error(`${role === 'teacher' ? 'Teacher' : 'Student'} profile not found in Firestore. Ask an administrator to create or repair the ${collectionName}/${user.uid} document for this Firebase Auth account.`);
     }
     return user;
   },
@@ -606,8 +605,8 @@ const firebaseServices = {
       scopedYear = teacher.year;
     }
     let q = scopedDepartment
-      ? query(collection(db, "users"), where("department", "==", scopedDepartment))
-      : query(collection(db, "users"));
+      ? query(collection(db, "users"), where("role", "==", "student"), where("department", "==", scopedDepartment))
+      : query(collection(db, "users"), where("role", "==", "student"));
     if (searchParams.registerNumber) q = query(q, where("registerNumber", "==", searchParams.registerNumber));
     if (searchParams.name) q = query(q, where("fullName", ">=", searchParams.name), where("fullName", "<=", searchParams.name + '\uf8ff'));
     if (scopedYear) q = query(q, where("year", "==", scopedYear));
@@ -617,10 +616,10 @@ const firebaseServices = {
 
   listStudents: async () => {
     firebaseServices._assertReady();
-    let studentsQuery = query(collection(db, "users"));
+    let studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
     if (auth.currentUser && await firebaseServices.getUserRole(auth.currentUser.uid) === 'teacher') {
       const teacher = await getActiveTeacherProfile();
-      studentsQuery = query(collection(db, "users"), where("department", "==", teacher.department), where("year", "==", teacher.year));
+      studentsQuery = query(collection(db, "users"), where("role", "==", "student"), where("department", "==", teacher.department), where("year", "==", teacher.year));
       const studentsSnapshot = await getDocs(studentsQuery);
       const students = studentsSnapshot.docs.map(studentDoc => ({ id: studentDoc.id, uid: studentDoc.id, ...studentDoc.data() }));
       const documentsSnapshot = await getDocs(query(collection(db, 'academicCertificates'), where("department", "==", teacher.department), where("year", "==", teacher.year)));
@@ -633,10 +632,10 @@ const firebaseServices = {
 
   subscribeStudents: async (callback) => {
     firebaseServices._assertReady();
-    let studentsQuery = query(collection(db, "users"));
+    let studentsQuery = query(collection(db, "users"), where("role", "==", "student"));
     if (auth.currentUser && await firebaseServices.getUserRole(auth.currentUser.uid) === 'teacher') {
       const teacher = await getActiveTeacherProfile();
-      studentsQuery = query(collection(db, "users"), where("department", "==", teacher.department), where("year", "==", teacher.year));
+      studentsQuery = query(collection(db, "users"), where("role", "==", "student"), where("department", "==", teacher.department), where("year", "==", teacher.year));
       const documentsQuery = query(collection(db, 'academicCertificates'), where("department", "==", teacher.department), where("year", "==", teacher.year));
       let students = [];
       let documents = [];
@@ -710,16 +709,20 @@ const firebaseServices = {
     if (!registerNumber) throw new Error('Please enter a register number.');
     const duplicateRegisterQuery = query(
       collection(db, "users"),
+      where("role", "==", "student"),
       where("registerNumber", "==", registerNumber),
-      where("department", "==", studentData.department)
+      where("department", "==", studentData.department),
+      where("year", "==", studentData.year)
     );
     const registerSnapshot = await getDocs(duplicateRegisterQuery);
     if (!registerSnapshot.empty) throw new Error('This register number is already registered.');
     if (studentId) {
       const duplicateStudentIdQuery = query(
         collection(db, "users"),
+        where("role", "==", "student"),
         where("studentId", "==", studentId),
-        where("department", "==", studentData.department)
+        where("department", "==", studentData.department),
+        where("year", "==", studentData.year)
       );
       const studentIdSnapshot = await getDocs(duplicateStudentIdQuery);
       if (!studentIdSnapshot.empty) throw new Error('This Student ID is already registered.');
@@ -890,7 +893,7 @@ const firebaseServices = {
   getTeacherDashboardStats: async () => {
     firebaseServices._assertReady();
     const teacher = await getActiveTeacherProfile();
-    const studentSnapshot = await getCountFromServer(query(collection(db, "users"), where("department", "==", teacher.department), where("year", "==", teacher.year)));
+    const studentSnapshot = await getCountFromServer(query(collection(db, "users"), where("role", "==", "student"), where("department", "==", teacher.department), where("year", "==", teacher.year)));
     const categories = TEACHER_READABLE_CATEGORIES;
     const counts = {
       department: teacher.department,
@@ -922,7 +925,7 @@ const firebaseServices = {
   getAcademicDocumentAnalytics: async () => {
     firebaseServices._assertReady();
     const teacher = await getActiveTeacherProfile();
-    const studentsSnapshot = await getDocs(query(collection(db, 'users'), where('department', '==', teacher.department), where('year', '==', teacher.year)));
+    const studentsSnapshot = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('department', '==', teacher.department), where('year', '==', teacher.year)));
     const students = studentsSnapshot.docs.map((studentDoc) => ({ id: studentDoc.id, uid: studentDoc.id, ...studentDoc.data() }));
     const academicSnapshot = await getDocs(query(collection(db, 'academicCertificates'), where('department', '==', teacher.department), where('year', '==', teacher.year)));
     const documents = academicSnapshot.docs.map((documentSnapshot) => ({ id: documentSnapshot.id, ...documentSnapshot.data() }));
@@ -950,7 +953,7 @@ const firebaseServices = {
   subscribeAcademicDocumentAnalytics: async (callback) => {
     firebaseServices._assertReady();
     const teacher = await getActiveTeacherProfile();
-    const studentsQuery = query(collection(db, 'users'), where('department', '==', teacher.department), where('year', '==', teacher.year));
+    const studentsQuery = query(collection(db, 'users'), where('role', '==', 'student'), where('department', '==', teacher.department), where('year', '==', teacher.year));
     const documentsQuery = query(collection(db, 'academicCertificates'), where('department', '==', teacher.department), where('year', '==', teacher.year));
     let students = [];
     let documents = [];
@@ -1026,6 +1029,7 @@ const firebaseServices = {
 
   waitForAuthUser: async () => {
     firebaseServices._assertReady();
+    await authPersistenceReady;
     if (auth.currentUser) return auth.currentUser;
     return new Promise((resolve) => {
       const unsubscribe = onAuthStateChanged(auth, (user) => {

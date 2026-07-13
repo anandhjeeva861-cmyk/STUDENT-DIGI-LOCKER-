@@ -1,4 +1,4 @@
-import { auth } from './firebase-init.js';
+import { auth, authPersistenceReady } from './firebase-init.js';
 import { onAuthStateChanged } from 'firebase/auth';
 
 const publicPages = ['index.html', 'student-register.html', 'teacher-login.html', 'teacher-register.html', ''];
@@ -15,17 +15,15 @@ const requiredRole = teacherPages.includes(currentPage)
     : null;
 
 if (!auth) {
-  const localAuthenticated = localStorage.getItem('sl_authenticated') === 'true';
-  const localRole = localStorage.getItem('sl_role');
-  if (!localAuthenticated && !isPublicPage) {
+  ['sl_authenticated', 'sl_role', 'sl_user', 'sl_profile'].forEach((key) => {
+    localStorage.removeItem(key);
+  });
+  if (!isPublicPage) {
     window.location.href = 'index.html';
-  } else if (localAuthenticated && isPublicPage && !isRegistrationPage) {
-    window.location.href = localRole === 'teacher' ? 'teacher-dashboard.html' : 'student-dashboard.html';
-  } else if (requiredRole && localRole && localRole !== requiredRole) {
-    window.location.href = localRole === 'teacher' ? 'teacher-dashboard.html' : 'student-dashboard.html';
   }
 } else {
-  window.waitForFirebase?.(() => {
+  window.waitForFirebase?.(async () => {
+    await authPersistenceReady;
     onAuthStateChanged(auth, async (user) => {
       try {
         if (user) {

@@ -43,7 +43,9 @@
       }
 
       // Listen for event.
-      const onEvent = () => finish();
+      const onEvent = () => {
+        if (hasServices()) finish();
+      };
       window.addEventListener('firebase-ready', onEvent, { once: true });
 
       // Poll in case event never fires.

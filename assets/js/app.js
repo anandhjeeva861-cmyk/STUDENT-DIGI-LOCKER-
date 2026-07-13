@@ -274,6 +274,12 @@
 
   const hasLiveFirebase = () => !!window.firebaseServices && !window.firebaseInitError;
 
+  const requireLiveFirebase = () => {
+    if (!hasLiveFirebase()) {
+      throw new Error(window.firebaseInitError?.message || 'Firebase is not configured. Accounts and documents cannot sync until Firebase initializes successfully.');
+    }
+  };
+
   const canTeacherAccessDocument = async (documentRecord) => {
     if (localStorage.getItem('sl_role') !== 'teacher') return true;
     if (documentRecord?.category !== 'Academic Certificates') return false;
@@ -325,6 +331,7 @@
         const user = await window.firebaseServices.registerStudent(studentData);
         return { uid: user.uid, email: user.email, role: 'student' };
       }
+      requireLiveFirebase();
       const email = String(studentData.email || '').trim().toLowerCase();
       if (findLocalAccount(email, 'student')) throw new Error('This email address is already registered.');
       const registerNumber = String(studentData.registerNumber || '').trim();
@@ -358,6 +365,7 @@
         const user = await window.firebaseServices.registerTeacher(teacherData);
         return { uid: user.uid, email: user.email, role: 'teacher' };
       }
+      requireLiveFirebase();
       const email = String(teacherData.email || '').trim().toLowerCase();
       const department = normalizeDepartment(teacherData.department);
       const year = normalizeYear(teacherData.year);
@@ -387,6 +395,7 @@
         setAuthState(role, { uid: user.uid, ...(profile || { email: normalizedEmail, role }) });
         return { uid: user.uid, email: user.email || normalizedEmail, role, ...(profile || {}) };
       }
+      requireLiveFirebase();
       const account = findLocalAccount(normalizedEmail, role);
       if (!account || account.password !== password) throw new Error('Invalid email or password.');
       setAuthState(role, account.profile);
@@ -441,6 +450,7 @@
         await window.firebaseServices.sendPasswordReset(email);
         return;
       }
+      requireLiveFirebase();
       const account = localAccounts().find((item) => item.email.toLowerCase() === String(email || '').trim().toLowerCase());
       if (!account) throw new Error('No account was found for that email address.');
     },
