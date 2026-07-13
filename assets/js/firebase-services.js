@@ -221,13 +221,13 @@ const firebaseServices = {
 
   registerTeacher: async (teacherData) => {
     firebaseServices._assertReady();
-    const { password, fullName, department, year, designation, phone } = teacherData;
+    const { password, fullName, department, year, phone } = teacherData;
     const email = normalizeEmail(teacherData.email);
     firebaseServices._assertDepartment(department);
     firebaseServices._assertYear(year);
     if (!isEmail(email)) throw new Error('Please enter a valid email address.');
     validatePassword(password);
-    if (!email || !password || !fullName || !department || !year || !designation || !phone) {
+    if (!email || !password || !fullName || !department || !year || !phone) {
       throw new Error('Please complete all required teacher registration fields.');
     }
     let userCredential;
@@ -252,7 +252,6 @@ const firebaseServices = {
         phone: phone.trim(),
         department: department,
         year,
-        designation: designation.trim(),
         role: 'teacher',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -597,7 +596,9 @@ const firebaseServices = {
       const studentIdSnapshot = await getDocs(duplicateStudentIdQuery);
       if (!studentIdSnapshot.empty) throw new Error('This Student ID is already registered.');
     }
-    const ref = await addDoc(collection(db, "users"), {
+    const studentRef = doc(collection(db, "users"));
+    await setDoc(studentRef, {
+      uid: studentRef.id,
       fullName: studentData.fullName?.trim() || '',
       registerNumber,
       email: studentData.email?.trim() || '',
@@ -610,7 +611,7 @@ const firebaseServices = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    return ref.id;
+    return studentRef.id;
   },
 
   getAllDocumentsForStudent: async (uid) => {
@@ -669,6 +670,43 @@ const firebaseServices = {
       });
     }
     return allDocuments;
+  },
+
+  subscribeStudentDocuments: async (uid, callback) => {
+    firebaseServices._assertReady();
+    let documentsQuery;
+    const role = await getCurrentRole();
+    if (role === 'teacher') {
+      const student = await firebaseServices.getStudentById(uid);
+      const teacher = await assertTeacherCanAccessStudent(student);
+      documentsQuery = query(
+        collection(db, 'academicCertificates'),
+        where("studentUid", "==", uid),
+        where("department", "==", teacher.department),
+        where("year", "==", teacher.year)
+      );
+    } else if (auth.currentUser && String(uid) === String(auth.currentUser.uid)) {
+      const studentProfile = await getActiveStudentProfile();
+      documentsQuery = query(
+        collection(db, 'academicCertificates'),
+        where("studentUid", "==", uid),
+        where("department", "==", studentProfile.department),
+        where("year", "==", studentProfile.year || '')
+      );
+    } else {
+      throw new Error('Access denied. You can view only your own documents.');
+    }
+    return onSnapshot(documentsQuery, (snapshot) => {
+      callback(snapshot.docs.map((documentSnapshot) => ({
+        id: documentSnapshot.id,
+        collectionName: 'academicCertificates',
+        category: 'Academic Certificates',
+        ...documentSnapshot.data(),
+      })));
+    }, (error) => {
+      console.error('[firebase-services] Student document listener failed.', error);
+      window.slToast?.(error.message || 'Student document sync failed.', 'error');
+    });
   },
 
   deleteStudent: async (studentId) => {
@@ -777,6 +815,59 @@ const firebaseServices = {
         pendingStudents,
       };
     });
+  },
+
+  subscribeAcademicDocumentAnalytics: async (callback) => {
+    firebaseServices._assertReady();
+    const teacher = await getActiveTeacherProfile();
+    const studentsQuery = query(collection(db, 'users'), where('department', '==', teacher.department), where('year', '==', teacher.year));
+    const documentsQuery = query(collection(db, 'academicCertificates'), where('department', '==', teacher.department), where('year', '==', teacher.year));
+    let students = [];
+    let documents = [];
+    let studentsReady = false;
+    let documentsReady = false;
+
+    const emit = () => {
+      if (!studentsReady || !documentsReady) return;
+      callback(ACADEMIC_DOCUMENT_TYPES.map((type) => {
+        const uploadedDocs = documents.filter((documentRecord) => documentRecord.title === type);
+        const uploadedStudentIds = new Set(uploadedDocs.map((documentRecord) => String(documentRecord.studentUid)));
+        const uploadedStudents = uploadedDocs.map((documentRecord) => ({
+          ...(students.find((item) => String(item.uid || item.id) === String(documentRecord.studentUid)) || {}),
+          document: documentRecord,
+        }));
+        return {
+          type,
+          uploadedCount: uploadedStudents.length,
+          pendingCount: students.filter((student) => !uploadedStudentIds.has(String(student.uid || student.id))).length,
+          uploadedStudents,
+          pendingStudents: students.filter((student) => !uploadedStudentIds.has(String(student.uid || student.id))),
+        };
+      }));
+    };
+
+    const unsubscribeStudents = onSnapshot(studentsQuery, (snapshot) => {
+      students = snapshot.docs.map((studentDoc) => ({ id: studentDoc.id, uid: studentDoc.id, ...studentDoc.data() }));
+      studentsReady = true;
+      emit();
+    }, (error) => {
+      console.error('[firebase-services] Student analytics listener failed.', error);
+      window.slToast?.(error.message || 'Student analytics sync failed.', 'error');
+    });
+
+    const unsubscribeDocuments = onSnapshot(documentsQuery, (snapshot) => {
+      documents = snapshot.docs.map((documentSnapshot) => ({ id: documentSnapshot.id, ...documentSnapshot.data() }));
+      documentsReady = true;
+      emit();
+    }, (error) => {
+      console.error('[firebase-services] Academic document listener failed.', error);
+      window.slToast?.(error.message || 'Academic document sync failed.', 'error');
+    });
+
+    return () => {
+      unsubscribeStudents();
+      unsubscribeDocuments();
+    };
   },
 
   getDocumentTotals: async () => {

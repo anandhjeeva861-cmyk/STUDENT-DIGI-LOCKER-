@@ -38,7 +38,6 @@
               <div class="row g-3">
                 <div class="col-md-6"><small class="text-muted">Department</small><div id="pDept">-</div></div>
                 <div class="col-md-6"><small class="text-muted">Academic Year</small><div id="pYear">-</div></div>
-                <div class="col-md-6"><small class="text-muted">Designation</small><div id="pDesignation">-</div></div>
                 <div class="col-md-6"><small class="text-muted">Email</small><div id="pEmail">-</div></div>
                 <div class="col-md-6"><small class="text-muted">Phone Number</small><div id="pPhone">-</div></div>
               </div>
@@ -82,7 +81,6 @@
       name: document.getElementById('pName'),
       dept: document.getElementById('pDept'),
       year: document.getElementById('pYear'),
-      designation: document.getElementById('pDesignation'),
       email: document.getElementById('pEmail'),
       phone: document.getElementById('pPhone')
     };
@@ -103,7 +101,6 @@
       fields.name.textContent = profile.fullName || 'Teacher Name';
       fields.dept.textContent = profile.department || '-';
       fields.year.textContent = window.SL_YEAR_LABELS?.[profile.year] || profile.year || '-';
-      fields.designation.textContent = profile.designation || '-';
       fields.email.textContent = profile.email || user.email || '-';
       fields.phone.textContent = profile.phone || '-';
       localStorage.setItem('sl_user', JSON.stringify({ uid: user.uid, name: profile.fullName, email: profile.email, role: 'teacher' }));

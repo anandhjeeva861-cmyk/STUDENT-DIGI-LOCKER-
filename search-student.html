@@ -60,6 +60,7 @@
   let studentCache = [];
   let hasStudentCache = false;
   let unsubscribeStudents = null;
+  let unsubscribeStudentDocuments = null;
 
   async function loadStudents(){
     return hasStudentCache ? studentCache : window.userService.listStudents();
@@ -122,12 +123,36 @@
   function docFileUrl(doc){
     return doc.fileUrl || doc.dataUrl || '';
   }
+  function stopStudentDocumentSync(){
+    if (typeof unsubscribeStudentDocuments === 'function') unsubscribeStudentDocuments();
+    unsubscribeStudentDocuments = null;
+  }
+  function renderStudentDocuments(docs = []){
+    document.getElementById('studentDocumentsBody').innerHTML = docs.length ? `
+      <div class="table-responsive">
+        <table class="table"><thead><tr><th>Document Name</th><th>Category</th><th>Upload Date</th><th>Actions</th></tr></thead><tbody>
+          ${docs.map(doc => {
+            const url = docFileUrl(doc);
+            return `<tr>
+              <td>${escapeHtml(doc.title || doc.fileName || doc.filename || '-')}</td>
+              <td>${escapeHtml(doc.category || 'Academic Certificates')}</td>
+              <td>${escapeHtml(formatDocDate(doc.createdAt))}</td>
+              <td class="text-nowrap">
+                <button class="btn btn-sm btn-outline-primary" data-preview-doc="${escapeHtml(doc.id)}"><i class="fas fa-eye me-1"></i>View</button>
+                <a class="btn btn-sm btn-outline-secondary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" download="${escapeHtml(doc.fileName || doc.filename || doc.title || 'document')}"><i class="fas fa-download me-1"></i>Download</a>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody></table>
+      </div>` : '<div class="empty-state">No academic certificates uploaded for this student.</div>';
+    window.currentStudentDocuments = docs;
+  }
   async function viewStudent(id){
     const students = await loadStudents();
     const student = students.find(x=>String(x.uid || x.id)===String(id));
     if(!student) return slToast('Student record not found', 'error');
     const uid = student.uid || student.id;
-    const docs = await window.documentService.getStudentDocuments(uid);
+    stopStudentDocumentSync();
     document.getElementById('studentDetailsTitle').textContent = student.fullName || student.name || 'Student Details';
     document.getElementById('studentDetailsBody').innerHTML = `
       <div class="row g-3">
@@ -138,24 +163,8 @@
         <div class="col-md-4"><small class="text-muted">Email</small><div>${escapeHtml(student.email || '-')}</div></div>
         <div class="col-md-4"><small class="text-muted">Phone Number</small><div>${escapeHtml(student.phone || student.mobile || '-')}</div></div>
       </div>`;
-    document.getElementById('studentDocumentsBody').innerHTML = docs.length ? `
-      <div class="table-responsive">
-        <table class="table"><thead><tr><th>Document Name</th><th>Category</th><th>Upload Date</th><th>Actions</th></tr></thead><tbody>
-          ${docs.map(doc => {
-            const url = docFileUrl(doc);
-            return `<tr>
-              <td>${escapeHtml(doc.title || doc.fileName || doc.filename || '-')}</td>
-              <td>${escapeHtml(doc.category || '-')}</td>
-              <td>${escapeHtml(formatDocDate(doc.createdAt))}</td>
-              <td class="text-nowrap">
-                <button class="btn btn-sm btn-outline-primary" data-preview-doc="${escapeHtml(doc.id)}"><i class="fas fa-eye me-1"></i>View</button>
-                <a class="btn btn-sm btn-outline-secondary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" download="${escapeHtml(doc.fileName || doc.filename || doc.title || 'document')}"><i class="fas fa-download me-1"></i>Download</a>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody></table>
-      </div>` : '<div class="empty-state">No documents uploaded for this student.</div>';
-    window.currentStudentDocuments = docs;
+    document.getElementById('studentDocumentsBody').innerHTML = '<div class="empty-state">Loading academic certificates...</div>';
+    unsubscribeStudentDocuments = await window.documentService.subscribeStudentDocuments(uid, renderStudentDocuments);
     new bootstrap.Modal(document.getElementById('studentDetailsModal')).show();
   }
   async function deleteStudent(id){
@@ -209,6 +218,7 @@
     const button = event.target.closest('[data-preview-doc]');
     if (button) previewDocument(button.getAttribute('data-preview-doc'));
   });
+  document.getElementById('studentDetailsModal').addEventListener('hidden.bs.modal', stopStudentDocumentSync);
   async function startRealtimeStudentList() {
     await Promise.all([lockDepartmentFilter(), lockYearFilter()]);
     try {
@@ -227,6 +237,7 @@
 
   window.addEventListener('beforeunload', () => {
     if (typeof unsubscribeStudents === 'function') unsubscribeStudents();
+    stopStudentDocumentSync();
   });
 
   startRealtimeStudentList();

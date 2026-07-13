@@ -10,11 +10,14 @@ import {
 } from '../auth.js';
 
 const roleCollection = (role) => (role === 'teacher' ? 'teachers' : 'users');
+const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 
 export async function registerUser(role, profile, password) {
-  const credential = await registerWithEmail(profile.email, password);
+  const email = normalizeEmail(profile.email);
+  const credential = await registerWithEmail(email, password);
   await setDocument(roleCollection(role), credential.user.uid, {
     ...profile,
+    email,
     uid: credential.user.uid,
     role,
   });
@@ -22,7 +25,7 @@ export async function registerUser(role, profile, password) {
 }
 
 export async function loginUser(email, password, role) {
-  const credential = await loginWithEmail(email, password);
+  const credential = await loginWithEmail(normalizeEmail(email), password);
   const profile = await getDocument(roleCollection(role), credential.user.uid);
   if (!profile || profile.role !== role) {
     await logout();

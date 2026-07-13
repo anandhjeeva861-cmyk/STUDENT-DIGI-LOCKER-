@@ -13,16 +13,20 @@ function requireAuth() {
   return auth;
 }
 
+function normalizeEmail(email = '') {
+  return String(email).trim().toLowerCase();
+}
+
 export function getCurrentUser() {
   return auth?.currentUser || null;
 }
 
 export async function registerWithEmail(email, password) {
-  return createUserWithEmailAndPassword(requireAuth(), email, password);
+  return createUserWithEmailAndPassword(requireAuth(), normalizeEmail(email), password);
 }
 
 export async function loginWithEmail(email, password) {
-  return signInWithEmailAndPassword(requireAuth(), email, password);
+  return signInWithEmailAndPassword(requireAuth(), normalizeEmail(email), password);
 }
 
 export async function logout() {
@@ -30,13 +34,13 @@ export async function logout() {
 }
 
 export async function resetPassword(email) {
-  return sendPasswordResetEmail(requireAuth(), email);
+  return sendPasswordResetEmail(requireAuth(), normalizeEmail(email));
 }
 
 export async function changeEmail(email) {
   const user = getCurrentUser();
   if (!user) throw new Error('Please sign in again to update your email.');
-  return updateEmail(user, email);
+  return updateEmail(user, normalizeEmail(email));
 }
 
 export async function changePassword(password) {

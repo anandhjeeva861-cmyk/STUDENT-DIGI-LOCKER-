@@ -340,7 +340,6 @@
         phone: teacherData.phone,
         department: teacherData.department,
         year: teacherData.year,
-        designation: teacherData.designation,
       });
       const accounts = localAccounts();
       accounts.push({ uid, email, password: teacherData.password, role: 'teacher', profile });
@@ -428,10 +427,15 @@
     addStudent: async (studentData) => {
       if (localStorage.getItem('sl_role') === 'teacher') {
         const teacherDepartment = await requireTeacherDepartment();
+        const teacherYear = await requireTeacherYear();
         if (studentData.department && studentData.department !== teacherDepartment) {
           throw new Error('You can add students only to your assigned department.');
         }
+        if (studentData.year && studentData.year !== teacherYear) {
+          throw new Error('You can add students only to your assigned academic year.');
+        }
         studentData.department = teacherDepartment;
+        studentData.year = teacherYear;
       }
       assertValidDepartment(studentData.department);
       if (hasLiveFirebase() && window.firebaseServices?.addStudentProfile) {
@@ -556,6 +560,14 @@
         };
       });
     },
+
+    subscribeAcademicDocumentAnalytics: async (callback) => {
+      if (hasLiveFirebase() && window.firebaseServices?.subscribeAcademicDocumentAnalytics) {
+        return window.firebaseServices.subscribeAcademicDocumentAnalytics(callback);
+      }
+      callback(await window.teacherService.getAcademicDocumentAnalytics());
+      return () => {};
+    },
   };
 
   const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
@@ -606,6 +618,14 @@
       let docs = window.documentService.getAllDocuments().filter((doc) => String(doc.studentUid) === String(uid));
       docs = await visibleDocumentsForTeacher(docs);
       return docs;
+    },
+
+    subscribeStudentDocuments: async (uid, callback) => {
+      if (hasLiveFirebase() && window.firebaseServices?.subscribeStudentDocuments) {
+        return window.firebaseServices.subscribeStudentDocuments(uid, callback);
+      }
+      callback(await window.documentService.getStudentDocuments(uid));
+      return () => {};
     },
 
     uploadDocument: async ({ file, title, description = '', category }) => {

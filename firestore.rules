@@ -10,11 +10,13 @@ service cloud.firestore {
       allow create: if request.auth != null
         && (request.auth.uid == userId || teacherCanAccessNewDepartment())
         && request.resource.data.role == 'student'
+        && validStudentProfileCreate(userId)
         && validDepartment(request.resource.data.department)
         && validYear(request.resource.data.year)
         && validRegisterNumber(request.resource.data.registerNumber);
       allow update: if request.auth != null
         && (request.auth.uid == userId || teacherCanAccessExistingAndNewDepartment())
+        && validStudentProfileUpdate(userId)
         && validDepartment(request.resource.data.department)
         && validYear(request.resource.data.year)
         && validRegisterNumber(request.resource.data.registerNumber)
@@ -30,10 +32,12 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == teacherId
         && request.resource.data.role == 'teacher'
+        && validTeacherProfileCreate()
         && validDepartment(request.resource.data.department)
         && validYear(request.resource.data.year);
       allow update: if request.auth != null
         && request.auth.uid == teacherId
+        && validTeacherProfileUpdate()
         && validDepartment(request.resource.data.department)
         && validYear(request.resource.data.year)
         && request.resource.data.role == resource.data.role
@@ -97,6 +101,84 @@ service cloud.firestore {
 
     function validRegisterNumber(registerNumber) {
       return registerNumber is string && registerNumber.size() > 0;
+    }
+
+    function validStudentProfileCreate(userId) {
+      return request.resource.data.keys().hasAll([
+        'uid',
+        'fullName',
+        'email',
+        'registerNumber',
+        'department',
+        'year',
+        'createdAt',
+        'updatedAt'
+      ])
+      && request.resource.data.keys().hasOnly([
+        'uid',
+        'fullName',
+        'email',
+        'registerNumber',
+        'department',
+        'year',
+        'phone',
+        'mobile',
+        'studentId',
+        'role',
+        'createdBy',
+        'profilePhotoUrl',
+        'createdAt',
+        'updatedAt'
+      ])
+      && request.resource.data.uid is string
+      && request.resource.data.uid == userId
+      && request.resource.data.fullName is string
+      && request.resource.data.email is string
+      && request.resource.data.uid.size() > 0
+      && request.resource.data.fullName.size() > 0
+      && request.resource.data.email.size() > 0;
+    }
+
+    function validStudentProfileUpdate(userId) {
+      return request.resource.data.uid == resource.data.uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validStudentProfileCreate(userId);
+    }
+
+    function validTeacherProfileCreate() {
+      return request.resource.data.keys().hasAll([
+        'uid',
+        'fullName',
+        'email',
+        'department',
+        'year',
+        'createdAt',
+        'updatedAt'
+      ])
+      && request.resource.data.keys().hasOnly([
+        'uid',
+        'fullName',
+        'email',
+        'department',
+        'year',
+        'phone',
+        'teacherId',
+        'role',
+        'profilePhotoUrl',
+        'createdAt',
+        'updatedAt'
+      ])
+      && request.resource.data.uid == request.auth.uid
+      && request.resource.data.fullName is string
+      && request.resource.data.email is string
+      && request.resource.data.fullName.size() > 0
+      && request.resource.data.email.size() > 0;
+    }
+
+    function validTeacherProfileUpdate() {
+      return request.resource.data.uid == resource.data.uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validTeacherProfileCreate();
     }
 
     function validAcademicDocumentType(title) {
