@@ -18,7 +18,7 @@
     </div>
   </div>
   <div class="table-responsive sl-card p-0">
-    <table class="table mb-0"><thead><tr><th>Name</th><th>Register</th><th>Dept</th><th>Year</th><th>Email</th><th>Actions</th></tr></thead>
+    <table class="table mb-0"><thead><tr><th>Name</th><th>Register</th><th>Dept</th><th>Year</th><th>Email</th><th>Document Status</th><th>Academic Count</th><th>Actions</th></tr></thead>
       <tbody id="tbody"></tbody></table>
   </div>
 </div>
@@ -108,12 +108,14 @@
       <tr>
         <td><button class="btn btn-link p-0 text-start" data-view-student="${escapeHtml(uid)}">${escapeHtml(s.fullName || s.name || '-')}</button></td>
         <td>${escapeHtml(s.registerNumber || s.reg || '-')}</td><td>${escapeHtml(s.department || s.dept || '-')}</td><td>${escapeHtml(window.SL_YEAR_LABELS?.[s.year] || s.year || '-')}</td><td>${escapeHtml(s.email||'-')}</td>
+        <td><span class="badge-info">${escapeHtml(s.documentStatus || 'pending')}</span></td>
+        <td>${Number(s.academicCertificateCount || 0)}</td>
         <td class="text-nowrap">
           <button class="btn btn-sm btn-outline-primary" data-view-student="${escapeHtml(uid)}"><i class="fas fa-eye me-1"></i>View</button>
           <button class="btn btn-sm btn-outline-danger" data-delete-student="${escapeHtml(uid)}"><i class="fas fa-trash me-1"></i>Delete</button>
         </td>
       </tr>`;
-    }).join('') : '<tr><td colspan="6" class="text-center text-muted p-4">No students found</td></tr>';
+    }).join('') : '<tr><td colspan="8" class="text-center text-muted p-4">No students found</td></tr>';
   }
   function formatDocDate(value){
     if (!value) return '-';

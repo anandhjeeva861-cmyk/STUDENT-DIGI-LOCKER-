@@ -147,6 +147,31 @@ const assertNoDuplicateAcademicDocument = async (studentUid, title) => {
   }
 };
 
+const addAcademicSummaryToStudents = (students = [], documents = []) => {
+  const documentsByStudent = documents.reduce((map, documentRecord) => {
+    const uid = String(documentRecord.studentUid || '');
+    if (!uid) return map;
+    if (!map.has(uid)) map.set(uid, []);
+    map.get(uid).push(documentRecord);
+    return map;
+  }, new Map());
+
+  return students.map((student) => {
+    const uid = String(student.uid || student.id || '');
+    const studentDocuments = documentsByStudent.get(uid) || [];
+    const latestDocument = studentDocuments.reduce((latest, documentRecord) => {
+      const latestTime = latest?.updatedAt?.seconds || latest?.createdAt?.seconds || 0;
+      const documentTime = documentRecord?.updatedAt?.seconds || documentRecord?.createdAt?.seconds || 0;
+      return documentTime >= latestTime ? documentRecord : latest;
+    }, null);
+    return {
+      ...student,
+      academicCertificateCount: studentDocuments.length,
+      documentStatus: latestDocument?.status || (studentDocuments.length ? 'uploaded' : 'pending'),
+    };
+  });
+};
+
 const firebaseServices = {
   _assertReady: () => {
     if (!auth || !db || !storage) {
@@ -557,6 +582,11 @@ const firebaseServices = {
     if (auth.currentUser && await firebaseServices.getUserRole(auth.currentUser.uid) === 'teacher') {
       const teacher = await getActiveTeacherProfile();
       studentsQuery = query(collection(db, "users"), where("department", "==", teacher.department), where("year", "==", teacher.year));
+      const studentsSnapshot = await getDocs(studentsQuery);
+      const students = studentsSnapshot.docs.map(studentDoc => ({ id: studentDoc.id, uid: studentDoc.id, ...studentDoc.data() }));
+      const documentsSnapshot = await getDocs(query(collection(db, 'academicCertificates'), where("department", "==", teacher.department), where("year", "==", teacher.year)));
+      const documents = documentsSnapshot.docs.map(documentSnapshot => ({ id: documentSnapshot.id, ...documentSnapshot.data() }));
+      return addAcademicSummaryToStudents(students, documents);
     }
     const querySnapshot = await getDocs(studentsQuery);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -568,6 +598,39 @@ const firebaseServices = {
     if (auth.currentUser && await firebaseServices.getUserRole(auth.currentUser.uid) === 'teacher') {
       const teacher = await getActiveTeacherProfile();
       studentsQuery = query(collection(db, "users"), where("department", "==", teacher.department), where("year", "==", teacher.year));
+      const documentsQuery = query(collection(db, 'academicCertificates'), where("department", "==", teacher.department), where("year", "==", teacher.year));
+      let students = [];
+      let documents = [];
+      let studentsReady = false;
+      let documentsReady = false;
+
+      const emit = () => {
+        if (!studentsReady || !documentsReady) return;
+        callback(addAcademicSummaryToStudents(students, documents));
+      };
+
+      const unsubscribeStudents = onSnapshot(studentsQuery, (snapshot) => {
+        students = snapshot.docs.map(studentDoc => ({ id: studentDoc.id, uid: studentDoc.id, ...studentDoc.data() }));
+        studentsReady = true;
+        emit();
+      }, (error) => {
+        console.error('[firebase-services] Student listener failed.', error);
+        window.slToast?.(error.message || 'Student list sync failed.', 'error');
+      });
+
+      const unsubscribeDocuments = onSnapshot(documentsQuery, (snapshot) => {
+        documents = snapshot.docs.map(documentSnapshot => ({ id: documentSnapshot.id, ...documentSnapshot.data() }));
+        documentsReady = true;
+        emit();
+      }, (error) => {
+        console.error('[firebase-services] Student document summary listener failed.', error);
+        window.slToast?.(error.message || 'Student document summary sync failed.', 'error');
+      });
+
+      return () => {
+        unsubscribeStudents();
+        unsubscribeDocuments();
+      };
     }
     return onSnapshot(studentsQuery, (snapshot) => {
       callback(snapshot.docs.map(studentDoc => ({ id: studentDoc.id, uid: studentDoc.id, ...studentDoc.data() })));

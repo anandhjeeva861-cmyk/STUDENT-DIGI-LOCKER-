@@ -299,6 +299,26 @@
     return docs.filter((doc) => doc.category === 'Academic Certificates' && getDepartment(doc) === department && normalizeYear(doc.year) === year);
   };
 
+  const addAcademicSummaryToStudents = (students = [], docs = []) => {
+    const documentsByStudent = docs.reduce((map, doc) => {
+      const uid = String(doc.studentUid || '');
+      if (!uid) return map;
+      if (!map.has(uid)) map.set(uid, []);
+      map.get(uid).push(doc);
+      return map;
+    }, new Map());
+    return students.map((student) => {
+      const uid = String(student.uid || student.id || '');
+      const studentDocuments = documentsByStudent.get(uid) || [];
+      const latestDocument = studentDocuments[studentDocuments.length - 1] || null;
+      return {
+        ...student,
+        academicCertificateCount: studentDocuments.length,
+        documentStatus: latestDocument?.status || (studentDocuments.length ? 'uploaded' : 'pending'),
+      };
+    });
+  };
+
   window.authService = {
     registerStudent: async (studentData) => {
       if (hasLiveFirebase() && window.firebaseServices?.registerStudent) {
@@ -496,7 +516,9 @@
       if (localStorage.getItem('sl_role') !== 'teacher') return students;
       const department = await requireTeacherDepartment();
       const year = await requireTeacherYear();
-      return students.filter((student) => getDepartment(student) === department && normalizeYear(student.year) === year);
+      const scopedStudents = students.filter((student) => getDepartment(student) === department && normalizeYear(student.year) === year);
+      const docs = await visibleDocumentsForTeacher(window.documentService.getAllDocuments());
+      return addAcademicSummaryToStudents(scopedStudents, docs);
     },
 
     getTeacherDepartment: async () => requireTeacherDepartment(),
