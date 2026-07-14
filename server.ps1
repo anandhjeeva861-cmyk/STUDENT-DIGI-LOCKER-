@@ -1,6 +1,15 @@
 param([int]$Port = 8000)
 
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+Push-Location $projectRoot
+try {
+  & npm.cmd run build
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+} finally {
+  Pop-Location
+}
+
+$root = Join-Path $projectRoot "dist"
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$Port/")
 $listener.Prefixes.Add("http://127.0.0.1:$Port/")

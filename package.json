@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "generate:firebase-config": "node scripts/generate-runtime-config.mjs",
+    "predev": "node scripts/generate-runtime-config.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/generate-runtime-config.mjs",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 5173"
   },

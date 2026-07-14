@@ -81,15 +81,75 @@ const logFirestoreWriteError = (operation, error) => {
   });
 };
 
+const defaultDepartment = () => VALID_DEPARTMENTS[0] || 'B.Sc Computer Science (BSC CS)';
+const defaultYear = () => VALID_YEARS[0] || 'I';
+
+const buildRepairProfile = (role, user, profileData = {}) => {
+  const email = normalizeEmail(profileData.email || user.email || '');
+  const fullName = String(profileData.fullName || profileData.name || user.displayName || email.split('@')[0] || role).trim();
+  const department = normalizeDepartment(profileData.department || defaultDepartment());
+  const year = normalizeYear(profileData.year || defaultYear());
+  const baseProfile = {
+    uid: user.uid,
+    fullName,
+    email,
+    department,
+    year,
+    role,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  if (role === 'teacher') {
+    return {
+      ...baseProfile,
+      teacherId: profileData.teacherId || buildGeneratedId('TCH', user.uid),
+      phone: String(profileData.phone || '').trim(),
+    };
+  }
+
+  const registerNumber = String(profileData.registerNumber || profileData.reg || buildGeneratedId('REPAIR', user.uid)).trim();
+  const phone = String(profileData.phone || profileData.mobile || '').trim();
+  return {
+    ...baseProfile,
+    registerNumber,
+    phone,
+    mobile: String(profileData.mobile || phone).trim(),
+    studentId: profileData.studentId || buildGeneratedId('STU', user.uid),
+    status: profileData.status || 'pending',
+  };
+};
+
+const ensureUserProfile = async (role, user, profileData = {}) => {
+  firebaseServices._assertReady();
+  if (!user?.uid) throw new Error('Cannot repair profile without an authenticated user.');
+  const collectionName = role === 'teacher' ? 'teachers' : 'users';
+  const profileRef = doc(db, collectionName, user.uid);
+  const snapshot = await getDoc(profileRef);
+  if (snapshot.exists()) {
+    const data = snapshot.data();
+    if (data.role !== role) {
+      throw new Error(`You are not authorized to login as a ${role}.`);
+    }
+    return { id: snapshot.id, ...data };
+  }
+
+  const repairedProfile = buildRepairProfile(role, user, profileData);
+  try {
+    await setDoc(profileRef, repairedProfile);
+  } catch (error) {
+    logFirestoreWriteError(`Profile repair write to ${collectionName}/${user.uid}`, error);
+    throw new Error(`${role === 'teacher' ? 'Teacher' : 'Student'} profile was missing and could not be repaired. Check Firestore rules and try again.`);
+  }
+  console.warn(`[firebase-services] Repaired missing ${role} profile at ${collectionName}/${user.uid}.`);
+  return { id: user.uid, ...repairedProfile };
+};
+
 const getActiveTeacherProfile = async () => {
   firebaseServices._assertReady();
   const user = auth.currentUser;
   if (!user) throw new Error('Please sign in as a teacher.');
-  const teacherDoc = await getDoc(doc(db, "teachers", user.uid));
-  if (!teacherDoc.exists() || teacherDoc.data().role !== 'teacher') {
-    throw new Error('Teacher profile not found.');
-  }
-  const profile = { id: teacherDoc.id, ...teacherDoc.data() };
+  const profile = await ensureUserProfile('teacher', user);
   if (!profile.department) throw new Error('Teacher department is not assigned.');
   if (!profile.year) throw new Error('Teacher academic year is not assigned.');
   return profile;
@@ -99,11 +159,7 @@ const getActiveStudentProfile = async () => {
   firebaseServices._assertReady();
   const user = auth.currentUser;
   if (!user) throw new Error('Please sign in as a student.');
-  const studentDoc = await getDoc(doc(db, "users", user.uid));
-  if (!studentDoc.exists() || studentDoc.data().role !== 'student') {
-    throw new Error('Student profile not found.');
-  }
-  const profile = { id: studentDoc.id, ...studentDoc.data() };
+  const profile = await ensureUserProfile('student', user);
   if (!profile.department) throw new Error('Student department is not assigned.');
   return profile;
 };
@@ -330,17 +386,11 @@ const firebaseServices = {
       throw friendlyAuthError(error);
     }
     const user = userCredential.user;
-    const collectionName = role === 'teacher' ? 'teachers' : 'users';
-    const userDoc = await getDoc(doc(db, collectionName, user.uid));
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      if (userData.role !== role) {
-        await signOut(auth);
-        throw new Error(`You are not authorized to login as a ${role}.`);
-      }
-    } else {
+    try {
+      await ensureUserProfile(role, user);
+    } catch (error) {
       await signOut(auth);
-      throw new Error(`${role === 'teacher' ? 'Teacher' : 'Student'} profile not found in Firestore. Ask an administrator to create or repair the ${collectionName}/${user.uid} document for this Firebase Auth account.`);
+      throw error;
     }
     return user;
   },
@@ -358,7 +408,12 @@ const firebaseServices = {
     firebaseServices._assertReady();
     const collectionName = role === 'teacher' ? 'teachers' : 'users';
     const userDoc = await getDoc(doc(db, collectionName, uid));
-    return userDoc.exists() ? userDoc.data() : null;
+    if (userDoc.exists()) return userDoc.data();
+    if (auth.currentUser && auth.currentUser.uid === uid) {
+      const repairedProfile = await ensureUserProfile(role, auth.currentUser);
+      return repairedProfile;
+    }
+    return null;
   },
 
   updateUserProfile: async (uid, role, data) => {

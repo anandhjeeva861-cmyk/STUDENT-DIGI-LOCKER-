@@ -6,8 +6,10 @@ const ALLOWED_FILE_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg'];
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 function cloudinaryConfig() {
-  const cloudName = String(import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '').trim();
-  const uploadPreset = String(import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '').trim();
+  const viteEnv = import.meta.env || {};
+  const runtimeEnv = globalThis.window?.__FIREBASE_ENV__ || {};
+  const cloudName = String(viteEnv.VITE_CLOUDINARY_CLOUD_NAME || runtimeEnv.VITE_CLOUDINARY_CLOUD_NAME || '').trim();
+  const uploadPreset = String(viteEnv.VITE_CLOUDINARY_UPLOAD_PRESET || runtimeEnv.VITE_CLOUDINARY_UPLOAD_PRESET || '').trim();
   if (!cloudName || !uploadPreset) {
     throw new Error('Cloudinary is not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET.');
   }

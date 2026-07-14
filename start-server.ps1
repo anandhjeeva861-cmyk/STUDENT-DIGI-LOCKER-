@@ -1,5 +1,10 @@
 param([int]$Port = 8000)
 
+& npm.cmd run build
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+$serveRoot = Join-Path (Get-Location) "dist"
+
 Write-Host ""
 Write-Host "========================================"
 Write-Host "  StudentLocker - Starting Server"
@@ -14,7 +19,7 @@ param([int]`$Port = $Port)
 `$listener.Prefixes.Add("http://localhost:`$Port/")
 `$listener.Start()
 
-`$currentPath = Get-Location
+`$currentPath = "$serveRoot"
 
 while (`$true) {
     try {
