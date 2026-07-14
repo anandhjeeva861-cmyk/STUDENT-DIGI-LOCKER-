@@ -30,7 +30,7 @@
   let d = null;
 
   function fileUrl(doc) {
-    return doc?.fileUrl || doc?.dataUrl || '';
+    return doc?.documentUrl || doc?.fileUrl || doc?.dataUrl || '';
   }
 
   function fileType(doc) {

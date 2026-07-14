@@ -1,7 +1,7 @@
-import { auth, authPersistenceReady, db, storage } from './firebase-init.js';
-import { createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updateEmail, updatePassword, deleteUser, onAuthStateChanged } from 'firebase/auth';
-import { setDoc, doc, getDoc, serverTimestamp, updateDoc, addDoc, collection, getDocs, query, where, deleteDoc, getCountFromServer, onSnapshot } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { auth, authPersistenceReady, db } from './firebase-init.js';
+import { createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updateEmail, updatePassword, deleteUser, onAuthStateChanged } from '@firebase/auth';
+import { setDoc, doc, getDoc, serverTimestamp, updateDoc, addDoc, collection, getDocs, query, where, deleteDoc, getCountFromServer, onSnapshot } from '@firebase/firestore';
+import { uploadDocument as uploadToCloudinary, validateCloudinaryFile } from '../../src/services/cloudinary.js';
 
 const VALID_DEPARTMENTS = window.SL_DEPARTMENTS || [];
 const VALID_YEARS = window.SL_YEARS || ['I', 'II', 'III'];
@@ -110,8 +110,6 @@ const getActiveStudentProfile = async () => {
 
 const getStudentUid = (student, fallbackId = '') => student?.uid || fallbackId;
 
-const safeFileName = (name = 'document') => String(name).replace(/[^A-Za-z0-9._-]/g, '_');
-
 const assertTeacherCanAccessStudent = async (student, teacherProfile = null) => {
   const teacher = teacherProfile || await getActiveTeacherProfile();
   if (!student || student.department !== teacher.department || student.year !== teacher.year) {
@@ -182,7 +180,7 @@ const addAcademicSummaryToStudents = (students = [], documents = []) => {
 
 const firebaseServices = {
   _assertReady: () => {
-    if (!auth || !db || !storage) {
+    if (!auth || !db) {
       const err = window.firebaseInitError || new Error('Firebase is not initialized. Missing/placeholder config.');
       throw err;
     }
@@ -413,7 +411,7 @@ const firebaseServices = {
     firebaseServices._assertReady();
     if (!docData.studentUid) throw new Error('Please sign in before uploading documents.');
     if (!docData.title?.trim()) throw new Error('Please enter a document title.');
-    if (!docData.fileUrl || !docData.fileName || !docData.fileType) throw new Error('Please select a valid document file.');
+    if (!(docData.documentUrl || docData.fileUrl) || !docData.fileName || !docData.fileType) throw new Error('Please select a valid document file.');
     const role = await getCurrentRole();
     if (role === 'teacher') {
       throw new Error('Teachers cannot upload student documents.');
@@ -430,11 +428,17 @@ const firebaseServices = {
     if (docData.category === 'Academic Certificates') {
       await assertNoDuplicateAcademicDocument(docData.studentUid, title);
     }
+    const documentUrl = docData.documentUrl || docData.fileUrl;
     await addDoc(collection(db, collectionName), {
       ...docData,
       title,
+      documentType: docData.documentType || title,
+      documentName: docData.documentName || docData.fileName || title,
+      documentUrl,
+      fileUrl: documentUrl,
       description: docData.description?.trim() || '',
       status: docData.status || 'uploaded',
+      uploadedAt: docData.uploadedAt || serverTimestamp(),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -443,7 +447,8 @@ const firebaseServices = {
   uploadDocument: async ({ file, title, description = '', category }) => {
     firebaseServices._assertReady();
     const activeStudent = await getActiveStudentProfile();
-    if (!file) throw new Error('Please select a valid document file.');
+    const fileError = validateCloudinaryFile(file);
+    if (fileError) throw new Error(fileError);
     const documentTitle = String(title || '').trim();
     if (!documentTitle) throw new Error('Please select a document type.');
     assertAcademicDocumentType(category, documentTitle);
@@ -451,31 +456,26 @@ const firebaseServices = {
       await assertNoDuplicateAcademicDocument(activeStudent.uid, documentTitle);
     }
     const collectionName = getCollectionName(category);
-    const storagePath = `students/${activeStudent.uid}/${collectionName}/${Date.now()}-${safeFileName(file.name)}`;
-    const fileRef = ref(storage, storagePath);
-    await uploadBytes(fileRef, file, {
-      contentType: file.type || 'application/octet-stream',
-      customMetadata: {
-        studentUid: activeStudent.uid,
-        department: activeStudent.department,
-        year: activeStudent.year || '',
-        category,
-        documentType: documentTitle,
-      },
-    });
-    const fileUrl = await getDownloadURL(fileRef);
+    const uploadResult = await uploadToCloudinary(file);
+    const documentUrl = uploadResult.secure_url;
     const documentRecord = {
       title: documentTitle,
+      documentType: documentTitle,
+      documentName: file.name,
       description,
       category,
       fileName: file.name,
       filename: file.name,
       fileType: file.type,
       type: file.type,
-      fileSize: file.size,
-      fileSizeLabel: window.formatFileSize?.(file.size) || `${file.size} B`,
-      fileUrl,
-      storagePath,
+      fileSize: uploadResult.bytes || file.size,
+      fileSizeLabel: window.formatFileSize?.(uploadResult.bytes || file.size) || `${uploadResult.bytes || file.size} B`,
+      documentUrl,
+      fileUrl: documentUrl,
+      publicId: uploadResult.public_id,
+      public_id: uploadResult.public_id,
+      originalFilename: uploadResult.original_filename,
+      format: uploadResult.format,
       studentUid: activeStudent.uid,
       studentName: activeStudent.fullName || activeStudent.name || '',
       registerNumber: activeStudent.registerNumber || activeStudent.reg || '',
@@ -489,22 +489,18 @@ const firebaseServices = {
         ...documentRecord,
         title: documentTitle,
         description: description.trim(),
+        uploadedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error('[firebase-services] Document metadata write failed after storage upload.', {
+      console.error('[firebase-services] Document metadata write failed after Cloudinary upload.', {
         code: error?.code,
         message: error?.message,
-        storagePath,
+        publicId: uploadResult.public_id,
         details: error,
       });
-      await deleteObject(fileRef).catch((deleteError) => {
-        if (deleteError?.code !== 'storage/object-not-found') {
-          console.warn('[firebase-services] Uploaded file rollback failed.', deleteError);
-        }
-      });
-      throw new Error('File uploaded, but document details could not be saved. The upload was rolled back. Please try again.');
+      throw new Error('File uploaded to Cloudinary, but document details could not be saved. Please contact support with the document public ID.');
     }
     return { id: documentRef.id, ...documentRecord };
   },
@@ -587,9 +583,9 @@ const firebaseServices = {
     } else if (auth.currentUser && String(currentData.studentUid) !== String(auth.currentUser.uid)) {
       throw new Error('Access denied. You can delete only your own documents.');
     }
-    if (currentData.storagePath) {
-      await deleteObject(ref(storage, currentData.storagePath)).catch((error) => {
-        if (error.code !== 'storage/object-not-found') throw error;
+    if (currentData.publicId || currentData.public_id) {
+      console.info('[firebase-services] Cloudinary asset retained for future server-side deletion.', {
+        publicId: currentData.publicId || currentData.public_id,
       });
     }
     await deleteDoc(doc(db, collectionName, docId));

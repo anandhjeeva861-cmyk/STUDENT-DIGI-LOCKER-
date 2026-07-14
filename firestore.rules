@@ -247,6 +247,9 @@ service cloud.firestore {
         && request.resource.data.title is string
         && request.resource.data.fileName is string
         && request.resource.data.fileUrl is string
+        && request.resource.data.documentUrl is string
+        && request.resource.data.publicId is string
+        && request.resource.data.uploadedAt is timestamp
         && (!('status' in request.resource.data) || request.resource.data.status in ['uploaded', 'verified', 'rejected', 'pending'])
         && validDepartment(request.resource.data.department)
         && validYear(request.resource.data.year);
@@ -257,7 +260,8 @@ service cloud.firestore {
         && request.resource.data.department == resource.data.department
         && request.resource.data.year == resource.data.year
         && request.resource.data.category == resource.data.category
-        && request.resource.data.storagePath == resource.data.storagePath;
+        && request.resource.data.documentUrl == resource.data.documentUrl
+        && request.resource.data.publicId == resource.data.publicId;
     }
 
     // Rules for student-specific collections

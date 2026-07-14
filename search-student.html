@@ -123,7 +123,7 @@
     return new Date(value).toLocaleDateString();
   }
   function docFileUrl(doc){
-    return doc.fileUrl || doc.dataUrl || '';
+    return doc.documentUrl || doc.fileUrl || doc.dataUrl || '';
   }
   function stopStudentDocumentSync(){
     if (typeof unsubscribeStudentDocuments === 'function') unsubscribeStudentDocuments();
@@ -145,7 +145,7 @@
               <td><span class="badge-info">${escapeHtml(doc.status || 'uploaded')}</span></td>
               <td>${escapeHtml(formatDocDate(doc.createdAt))}</td>
               <td class="text-nowrap">
-                <button class="btn btn-sm btn-outline-primary" data-preview-doc="${escapeHtml(doc.id)}"><i class="fas fa-eye me-1"></i>View</button>
+                <a class="btn btn-sm btn-outline-primary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="fas fa-eye me-1"></i>View</a>
                 <a class="btn btn-sm btn-outline-secondary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" download="${escapeHtml(doc.fileName || doc.filename || doc.title || 'document')}"><i class="fas fa-download me-1"></i>Download</a>
               </td>
             </tr>`;
@@ -220,10 +220,6 @@
     const deleteButton = event.target.closest('[data-delete-student]');
     if (viewButton) viewStudent(viewButton.getAttribute('data-view-student'));
     if (deleteButton) deleteStudent(deleteButton.getAttribute('data-delete-student'));
-  });
-  document.getElementById('studentDocumentsBody').addEventListener('click', (event) => {
-    const button = event.target.closest('[data-preview-doc]');
-    if (button) previewDocument(button.getAttribute('data-preview-doc'));
   });
   document.getElementById('studentDetailsModal').addEventListener('hidden.bs.modal', stopStudentDocumentSync);
   async function startRealtimeStudentList() {

@@ -79,7 +79,7 @@
   }
 
   function docUrl(doc = {}) {
-    return doc.fileUrl || doc.dataUrl || '';
+    return doc.documentUrl || doc.fileUrl || doc.dataUrl || '';
   }
 
   function renderPreview(doc) {
@@ -127,7 +127,7 @@
                 <td>${escapeHtml(student.year || '-')}</td>
                 ${isUploaded ? `<td><span class="badge-info">${escapeHtml(student.document?.status || 'uploaded')}</span></td>` : ''}
                 ${isUploaded ? `<td class="text-nowrap">
-                  <button class="btn btn-sm btn-outline-primary" data-preview-doc="${escapeHtml(documentId)}"><i class="fas fa-eye me-1"></i>View</button>
+                  <a class="btn btn-sm btn-outline-primary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="fas fa-eye me-1"></i>View</a>
                   <a class="btn btn-sm btn-outline-secondary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" download="${escapeHtml(student.document?.fileName || student.document?.filename || type)}"><i class="fas fa-download me-1"></i>Download</a>
                 </td>` : ''}
               </tr>`;
@@ -185,13 +185,6 @@
     const button = event.target.closest('[data-open-list]');
     if (!button) return;
     openList(button.getAttribute('data-open-list'), button.getAttribute('data-mode'));
-  });
-
-  document.getElementById('analyticsListBody').addEventListener('click', (event) => {
-    const button = event.target.closest('[data-preview-doc]');
-    if (!button) return;
-    const doc = activeDocuments.find((item) => String(item.id) === String(button.getAttribute('data-preview-doc')));
-    if (doc) renderPreview(doc);
   });
 
   window.addEventListener('beforeunload', () => {

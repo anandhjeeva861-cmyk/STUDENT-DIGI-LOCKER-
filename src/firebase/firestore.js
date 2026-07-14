@@ -10,7 +10,7 @@ import {
   setDoc,
   updateDoc,
   where,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { firestore } from './index.js';
 
 function requireFirestore() {

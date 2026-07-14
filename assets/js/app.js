@@ -43,14 +43,18 @@
     const {
       maxSizeBytes = 750 * 1024,
       allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'],
+      allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'],
     } = options;
 
     if (!file) return 'Please select a file.';
-    if (!allowedTypes.includes(file.type)) {
+    const extension = String(file.name || '').split('.').pop()?.toLowerCase();
+    if (!allowedTypes.includes(file.type) || !allowedExtensions.includes(extension)) {
       return 'Only PDF, JPG, JPEG, and PNG files are allowed.';
     }
     if (file.size > maxSizeBytes) {
-      return `File size must be ${Math.round(maxSizeBytes / 1024)} KB or smaller.`;
+      return maxSizeBytes >= 1024 * 1024
+        ? `File size must be ${(maxSizeBytes / (1024 * 1024)).toFixed(0)} MB or smaller.`
+        : `File size must be ${Math.round(maxSizeBytes / 1024)} KB or smaller.`;
     }
     return '';
   };
@@ -698,6 +702,8 @@
       const doc = {
         id: Date.now(),
         title: title.trim(),
+        documentType: title.trim(),
+        documentName: file.name,
         description: description.trim(),
         category,
         fileName: file.name,
@@ -706,14 +712,20 @@
         type: file.type,
         fileSize: file.size,
         fileSizeLabel: window.formatFileSize(file.size),
+        documentUrl: dataUrl,
         fileUrl: dataUrl,
         dataUrl,
+        publicId: '',
+        public_id: '',
+        originalFilename: file.name,
+        format: file.name.split('.').pop()?.toLowerCase() || '',
         studentUid: active.uid,
         studentName: profile?.fullName || profile?.name || active.name || '',
         registerNumber: profile?.registerNumber || profile?.reg || '',
         department: normalizeDepartment(profile?.department || profile?.dept || ''),
         year: normalizeYear(profile?.year || ''),
         status: 'uploaded',
+        uploadedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
       };
       docs.push(doc);

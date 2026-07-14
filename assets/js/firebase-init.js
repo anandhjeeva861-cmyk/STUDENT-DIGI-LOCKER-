@@ -1,4 +1,4 @@
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider } from '@firebase/app-check';
 import {
   appCheckSiteKey,
   auth,
@@ -6,7 +6,6 @@ import {
   firebaseConfig,
   firestore as db,
   hasFirebaseConfig,
-  storage,
   authPersistenceReady,
 } from '../../src/firebase/index.js';
 
@@ -16,7 +15,7 @@ function isPlaceholder(value) {
   return !v || v.startsWith('YOUR_') || v.startsWith('your-');
 }
 
-if (!hasFirebaseConfig() || !firebaseApp || !auth || !db || !storage) {
+if (!hasFirebaseConfig() || !firebaseApp || !auth || !db) {
   // Expose nulls so dependent modules can fail gracefully.
   console.warn('[firebase-init] Firebase config is missing or still using placeholders in `.env`.');
   window.firebaseInitError = new Error('Firebase configuration is not set. Please add real Firebase credentials to `.env` and restart `npm run dev`.');
@@ -39,5 +38,4 @@ if (!hasFirebaseConfig() || !firebaseApp || !auth || !db || !storage) {
 
 window.firebaseAuth = auth;
 window.firebaseDb = db;
-window.firebaseStorage = storage;
-export { auth, authPersistenceReady, db, storage };
+export { auth, authPersistenceReady, db };

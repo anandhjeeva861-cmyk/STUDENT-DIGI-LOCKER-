@@ -5,7 +5,7 @@ import {
   signOut,
   updateEmail,
   updatePassword,
-} from 'firebase/auth';
+} from '@firebase/auth';
 import { auth } from './index.js';
 
 function requireAuth() {
