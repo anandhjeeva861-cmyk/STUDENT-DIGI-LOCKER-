@@ -1,5 +1,8 @@
 body {
-  background: radial-gradient(circle at top left, rgba(15,139,141,0.18), transparent 30%), linear-gradient(135deg, #f5f8ff, #eef7f5);
+  background:
+    radial-gradient(circle at top left, rgba(19,166,176,0.18), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(30,90,168,0.14), transparent 28%),
+    linear-gradient(135deg, #f5f9ff, #edf8fb);
 }
 .auth-wrapper {
   min-height: 100vh; display: grid; place-items: center; padding: 24px;
@@ -8,9 +11,10 @@ body {
   width: min(100%, 520px);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 28px;
-  padding: 32px;
+  border-radius: 24px;
+  padding: clamp(24px, 4vw, 36px);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
 }
 .auth-logo {
   width: 70px; height: 70px; border-radius: 20px; display: grid; place-items: center;
@@ -28,6 +32,8 @@ body {
 .role-card {
   border: 1px solid var(--border); border-radius: 18px; padding: 18px; text-align: center; cursor: pointer; transition: all 180ms ease;
   background: var(--surface-2);
+  position: relative;
+  overflow: hidden;
 }
 .role-card:hover { transform: translateY(-2px); border-color: var(--accent); color: var(--primary); background: var(--accent-soft); }
 .role-card i { font-size: 1.5rem; color: var(--accent); margin-bottom: 8px; }

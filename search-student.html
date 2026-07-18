@@ -43,6 +43,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="documentPreviewTitle">Preview</h5>
+        <button class="btn btn-sm btn-outline-primary ms-auto me-2" type="button" onclick="printActiveDocument()"><i class="fas fa-print me-1"></i>Print</button>
         <button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="documentPreviewBody"></div>
@@ -62,6 +63,7 @@
   let hasStudentCache = false;
   let unsubscribeStudents = null;
   let unsubscribeStudentDocuments = null;
+  let activePreviewDocument = null;
 
   async function loadStudents(){
     return hasStudentCache ? studentCache : window.userService.listStudents();
@@ -124,7 +126,7 @@
     return new Date(value).toLocaleDateString();
   }
   function docFileUrl(doc){
-    return doc.documentUrl || doc.fileUrl || doc.dataUrl || '';
+    return window.slDocumentUrl(doc);
   }
   function stopStudentDocumentSync(){
     if (typeof unsubscribeStudentDocuments === 'function') unsubscribeStudentDocuments();
@@ -140,6 +142,7 @@
         <table class="table"><thead><tr><th>Document Name</th><th>Category</th><th>Status</th><th>Upload Date</th><th>Actions</th></tr></thead><tbody>
           ${docs.map(doc => {
             const url = docFileUrl(doc);
+            const downloadUrl = window.slDownloadUrl(doc, doc.fileName || doc.documentName || doc.title || 'document');
             return `<tr>
               <td>${escapeHtml(doc.title || doc.fileName || doc.filename || '-')}</td>
               <td>${escapeHtml(doc.category || 'Academic Certificates')}</td>
@@ -147,7 +150,7 @@
               <td>${escapeHtml(formatDocDate(doc.createdAt))}</td>
               <td class="text-nowrap">
                 <a class="btn btn-sm btn-outline-primary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="fas fa-eye me-1"></i>View</a>
-                <a class="btn btn-sm btn-outline-secondary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" download="${escapeHtml(doc.fileName || doc.filename || doc.title || 'document')}"><i class="fas fa-download me-1"></i>Download</a>
+                <a class="btn btn-sm btn-outline-secondary ${downloadUrl ? '' : 'disabled'}" href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener" download="${escapeHtml(doc.fileName || doc.filename || doc.title || 'document')}"><i class="fas fa-download me-1"></i>Download</a>
               </td>
             </tr>`;
           }).join('')}
@@ -190,6 +193,7 @@
   function previewDocument(id){
     const doc = (window.currentStudentDocuments || []).find(item => String(item.id) === String(id));
     if(!doc) return;
+    activePreviewDocument = doc;
     const url = docFileUrl(doc);
     document.getElementById('documentPreviewTitle').textContent = doc.title || doc.fileName || 'Preview';
     const body = document.getElementById('documentPreviewBody');
@@ -212,6 +216,12 @@
     }
     new bootstrap.Modal(document.getElementById('documentPreviewModal')).show();
   }
+  window.printActiveDocument = function printActiveDocument() {
+    const url = docFileUrl(activePreviewDocument || {});
+    if (!url) return slToast('Print link is not available for this document.', 'error');
+    const printWindow = window.open(url, '_blank', 'noopener');
+    printWindow?.addEventListener?.('load', () => printWindow.print());
+  };
   document.getElementById('q').addEventListener('input', renderResults);
   document.getElementById('searchBtn').addEventListener('click', renderResults);
   document.getElementById('fDept').addEventListener('change', renderResults);

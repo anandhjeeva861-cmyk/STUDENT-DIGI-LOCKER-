@@ -31,7 +31,7 @@
   let d = null;
 
   function fileUrl(doc) {
-    return doc?.documentUrl || doc?.fileUrl || doc?.dataUrl || '';
+    return window.slDocumentUrl(doc || {});
   }
 
   function fileType(doc) {
@@ -83,13 +83,7 @@
   }
 
   window.doDownload = function doDownload(){
-    const url = fileUrl(d);
-    if(d && url){
-      const a=document.createElement('a');
-      a.href=url;
-      a.download=d.fileName || d.filename || d.title || 'document';
-      a.click();
-    }
+    if(d) window.slDownloadDocument(d);
   };
   window.doDelete = async function doDelete(){
     if(!d) return;

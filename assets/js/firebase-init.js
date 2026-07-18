@@ -8,8 +8,8 @@ import {
 
 if (!hasFirebaseConfig() || !firebaseApp || !auth || !db) {
   // Expose nulls so dependent modules can fail gracefully.
-  console.warn('[firebase-init] Firebase config is missing or still using placeholders in `.env`.');
-  window.firebaseInitError = new Error('Firebase configuration is not set. Please add real Firebase credentials to `.env` and restart `npm run dev`.');
+  console.warn('[firebase-init] Firebase config is missing. Set VITE_FIREBASE_* variables in `.env` locally or in the deployment environment.');
+  window.firebaseInitError = new Error('Firebase is not configured. Set the VITE_FIREBASE_* environment variables for this deployment and rebuild.');
 }
 
 window.firebaseAuth = auth;

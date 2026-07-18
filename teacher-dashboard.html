@@ -51,6 +51,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="documentPreviewTitle">Preview</h5>
+        <button class="btn btn-sm btn-outline-primary ms-auto me-2" type="button" onclick="printActiveDocument()"><i class="fas fa-print me-1"></i>Print</button>
         <button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="documentPreviewBody"></div>
@@ -69,6 +70,7 @@
   const analyticsRoot = document.getElementById('academicAnalytics');
   let analyticsData = [];
   let activeDocuments = [];
+  let activePreviewDocument = null;
   let unsubscribeAnalytics = null;
 
   function studentName(student = {}) {
@@ -80,10 +82,11 @@
   }
 
   function docUrl(doc = {}) {
-    return doc.documentUrl || doc.fileUrl || doc.dataUrl || '';
+    return window.slDocumentUrl(doc);
   }
 
   function renderPreview(doc) {
+    activePreviewDocument = doc;
     const body = document.getElementById('documentPreviewBody');
     body.replaceChildren();
     const url = docUrl(doc);
@@ -107,6 +110,13 @@
     new bootstrap.Modal(document.getElementById('documentPreviewModal')).show();
   }
 
+  window.printActiveDocument = function printActiveDocument() {
+    const url = docUrl(activePreviewDocument || {});
+    if (!url) return slToast('Print link is not available for this document.', 'error');
+    const printWindow = window.open(url, '_blank', 'noopener');
+    printWindow?.addEventListener?.('load', () => printWindow.print());
+  };
+
   function openList(type, mode) {
     const group = analyticsData.find((item) => item.type === type);
     if (!group) return;
@@ -122,6 +132,7 @@
             ${rows.map((student) => {
               const documentId = student.document?.id || '';
               const url = docUrl(student.document);
+              const downloadUrl = window.slDownloadUrl(student.document, student.document?.fileName || student.document?.documentName || type);
               return `<tr>
                 <td>${escapeHtml(studentName(student))}</td>
                 <td>${escapeHtml(student.registerNumber || student.reg || '-')}</td>
@@ -129,7 +140,7 @@
                 ${isUploaded ? `<td><span class="badge-info">${escapeHtml(student.document?.status || 'uploaded')}</span></td>` : ''}
                 ${isUploaded ? `<td class="text-nowrap">
                   <a class="btn btn-sm btn-outline-primary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="fas fa-eye me-1"></i>View</a>
-                  <a class="btn btn-sm btn-outline-secondary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" download="${escapeHtml(student.document?.fileName || student.document?.filename || type)}"><i class="fas fa-download me-1"></i>Download</a>
+                  <a class="btn btn-sm btn-outline-secondary ${downloadUrl ? '' : 'disabled'}" href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener" download="${escapeHtml(student.document?.fileName || student.document?.filename || type)}"><i class="fas fa-download me-1"></i>Download</a>
                 </td>` : ''}
               </tr>`;
             }).join('')}

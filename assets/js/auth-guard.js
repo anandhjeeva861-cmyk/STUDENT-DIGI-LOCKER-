@@ -27,7 +27,14 @@ if (!auth) {
     onAuthStateChanged(auth, async (user) => {
       try {
         if (user) {
-          const role = await window.firebaseServices.getUserRole(user.uid);
+          let role = await window.firebaseServices.getUserRole(user.uid);
+          if (!role) {
+            const repairRole = requiredRole || localStorage.getItem('sl_role');
+            if (repairRole === 'student' || repairRole === 'teacher') {
+              const repairedProfile = await window.firebaseServices.getUserProfile(user.uid, repairRole);
+              role = repairedProfile?.role || repairRole;
+            }
+          }
           if (!role) {
             if (isRegistrationPage) return;
             await window.firebaseServices.logout();

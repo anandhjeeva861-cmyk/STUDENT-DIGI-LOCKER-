@@ -63,24 +63,24 @@ img { max-width: 100%; display: block; }
 }
 
 .portal-logo-auth {
-  width: clamp(78px, 18vw, 112px);
-  height: clamp(78px, 18vw, 112px);
-  margin: 0 auto 16px;
-  filter: drop-shadow(0 10px 20px rgba(15, 23, 42, 0.16));
+  width: clamp(92px, 18vw, 128px);
+  height: clamp(92px, 18vw, 128px);
+  margin: 0 auto 18px;
+  filter: drop-shadow(0 14px 24px rgba(15, 49, 95, 0.18));
 }
 
 .portal-logo-sidebar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
   background: rgba(255,255,255,0.12);
-  padding: 3px;
+  padding: 4px;
 }
 
 .portal-logo-topbar {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
 }
 
 .app-shell {
@@ -387,4 +387,172 @@ body[data-theme="dark"] .dropdown-item:focus {
 
 @media (max-width: 1100px) {
   .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Premium university portal refinement layer */
+:root {
+  --bg: #eef5ff;
+  --surface-2: #f5f8fd;
+  --text: #10233f;
+  --muted: #61708a;
+  --primary: #1e5aa8;
+  --primary-dark: #0f315f;
+  --primary-soft: #e8f1ff;
+  --accent: #13a6b0;
+  --accent-soft: #e4f8fb;
+  --border: rgba(16, 35, 63, 0.1);
+  --shadow: 0 22px 55px rgba(16, 35, 63, 0.11);
+  --shadow-sm: 0 10px 28px rgba(16, 35, 63, 0.08);
+  --radius: 18px;
+  --radius-sm: 12px;
+}
+
+body {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(19, 166, 176, 0.13), transparent 28%),
+    linear-gradient(135deg, var(--bg), #f8fbff 46%, #edf8fb);
+  opacity: 0;
+  animation: pageFadeIn 280ms ease forwards;
+}
+
+body.page-ready [data-layout],
+body.page-ready .auth-card {
+  animation: slideUpFade 360ms ease both;
+}
+
+.sidebar {
+  background: linear-gradient(180deg, rgba(15,49,95,0.98), rgba(30,90,168,0.95) 54%, rgba(19,166,176,0.92));
+  box-shadow: 18px 0 44px rgba(15, 49, 95, 0.24);
+  backdrop-filter: blur(18px);
+}
+
+.sidebar .brand,
+.sidebar .nav-link,
+.form-control,
+.form-select,
+textarea {
+  border-radius: var(--radius-sm);
+}
+
+.sidebar .nav-link,
+.menu-btn,
+.theme-btn,
+.btn,
+.role-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.main-panel {
+  padding: clamp(16px, 3vw, 30px);
+}
+
+.topbar {
+  border-radius: var(--radius);
+  backdrop-filter: blur(12px);
+}
+
+.page-header {
+  padding: 8px 2px 2px;
+}
+
+.page-header h2 {
+  font-size: clamp(1.35rem, 2.3vw, 1.8rem);
+  letter-spacing: 0;
+}
+
+.sl-card {
+  padding: clamp(16px, 2.4vw, 22px);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.sl-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 24px 58px rgba(15, 49, 95, 0.14);
+  border-color: color-mix(in srgb, var(--primary) 20%, var(--border));
+}
+
+.welcome-hero {
+  background:
+    radial-gradient(circle at 88% 18%, rgba(255,255,255,0.28), transparent 27%),
+    linear-gradient(120deg, var(--primary-dark), var(--primary) 58%, var(--accent));
+  border-radius: 22px;
+  padding: clamp(22px, 3vw, 32px);
+}
+
+.welcome-hero h3 {
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+}
+
+.btn {
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.btn-primary {
+  box-shadow: 0 12px 26px rgba(30, 90, 168, 0.22);
+}
+
+.form-control,
+.form-select,
+textarea {
+  padding: 11px 13px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.form-label {
+  font-size: 0.92rem;
+}
+
+.table-responsive {
+  overflow: auto;
+  box-shadow: var(--shadow-sm);
+}
+
+.table thead th {
+  white-space: nowrap;
+}
+
+.table td,
+.table th {
+  padding: 0.9rem 1rem;
+}
+
+.table tbody tr {
+  transition: background 160ms ease;
+}
+
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+.ui-ripple {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.38);
+  pointer-events: none;
+  transform: scale(0);
+  animation: ripplePulse 520ms ease-out;
+}
+
+.skeleton {
+  min-height: 1rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--surface-2), color-mix(in srgb, var(--primary) 10%, var(--surface)), var(--surface-2));
+  background-size: 220% 100%;
+  animation: skeletonMove 1.1s ease-in-out infinite;
+}
+
+@keyframes pageFadeIn { to { opacity: 1; } }
+@keyframes slideUpFade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ripplePulse { to { transform: scale(2.4); opacity: 0; } }
+@keyframes skeletonMove { to { background-position: -220% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

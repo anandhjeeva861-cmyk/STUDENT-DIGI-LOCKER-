@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -37,9 +37,9 @@ function parseEnv(contents) {
   return env;
 }
 
-const env = parseEnv(readFileSync(envPath, 'utf8'));
+const envFile = existsSync(envPath) ? parseEnv(readFileSync(envPath, 'utf8')) : {};
 const runtimeEnv = Object.fromEntries(
-  allowedKeys.map((key) => [key, env[key] || ''])
+  allowedKeys.map((key) => [key, process.env[key] || envFile[key] || ''])
 );
 
 mkdirSync(dirname(outputPath), { recursive: true });

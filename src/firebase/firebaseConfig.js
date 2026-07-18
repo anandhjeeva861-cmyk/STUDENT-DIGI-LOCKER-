@@ -16,7 +16,13 @@ export const firebaseConfig = {
 function isConfiguredValue(value) {
   if (typeof value !== 'string') return false;
   const normalized = value.trim();
-  return Boolean(normalized && !normalized.startsWith('YOUR_') && !normalized.startsWith('your-'));
+  return Boolean(
+    normalized
+      && !normalized.startsWith('YOUR_')
+      && !normalized.startsWith('your-')
+      && !normalized.includes('your_')
+      && !normalized.includes('placeholder')
+  );
 }
 
 export function hasFirebaseConfig(config = firebaseConfig) {

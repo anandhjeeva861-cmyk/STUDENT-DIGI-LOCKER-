@@ -209,6 +209,18 @@ const assertNoDuplicateAcademicDocument = async (studentUid, title) => {
   }
 };
 
+const isLegacyFirebaseStorageUrl = (url = '') => /firebasestorage\.googleapis\.com|storage\.googleapis\.com|\.appspot\.com\/o\//i.test(String(url || ''));
+const isCloudinarySecureUrl = (url = '') => /^https:\/\/res\.cloudinary\.com\/[^/]+\/(?:image|raw|video|auto)\/upload\//i.test(String(url || ''));
+
+const assertCloudinaryDocumentMetadata = (documentUrl, publicId) => {
+  if (!documentUrl || isLegacyFirebaseStorageUrl(documentUrl) || !isCloudinarySecureUrl(documentUrl)) {
+    throw new Error('Document URL must be the Cloudinary secure_url.');
+  }
+  if (!publicId) {
+    throw new Error('Document publicId must be saved from Cloudinary.');
+  }
+};
+
 const addAcademicSummaryToStudents = (students = [], documents = []) => {
   const documentsByStudent = documents.reduce((map, documentRecord) => {
     const uid = String(documentRecord.studentUid || '');
@@ -466,7 +478,7 @@ const firebaseServices = {
     firebaseServices._assertReady();
     if (!docData.studentUid) throw new Error('Please sign in before uploading documents.');
     if (!docData.title?.trim()) throw new Error('Please enter a document title.');
-    if (!(docData.documentUrl || docData.fileUrl) || !docData.fileName || !docData.fileType) throw new Error('Please select a valid document file.');
+    if (!docData.documentUrl || !docData.fileName || !docData.fileType) throw new Error('Please select a valid document file.');
     const role = await getCurrentRole();
     if (role === 'teacher') {
       throw new Error('Teachers cannot upload student documents.');
@@ -483,7 +495,9 @@ const firebaseServices = {
     if (docData.category === 'Academic Certificates') {
       await assertNoDuplicateAcademicDocument(docData.studentUid, title);
     }
-    const documentUrl = docData.documentUrl || docData.fileUrl;
+    const documentUrl = docData.documentUrl;
+    const publicId = docData.publicId || docData.public_id || '';
+    assertCloudinaryDocumentMetadata(documentUrl, publicId);
     await addDoc(collection(db, collectionName), {
       ...docData,
       title,
@@ -491,6 +505,8 @@ const firebaseServices = {
       documentName: docData.documentName || docData.fileName || title,
       documentUrl,
       fileUrl: documentUrl,
+      publicId,
+      public_id: publicId,
       description: docData.description?.trim() || '',
       status: docData.status || 'uploaded',
       uploadedAt: docData.uploadedAt || serverTimestamp(),
@@ -513,6 +529,7 @@ const firebaseServices = {
     const collectionName = getCollectionName(category);
     const uploadResult = await uploadToCloudinary(file);
     const documentUrl = uploadResult.secure_url;
+    assertCloudinaryDocumentMetadata(documentUrl, uploadResult.public_id);
     const documentRecord = {
       title: documentTitle,
       documentType: documentTitle,

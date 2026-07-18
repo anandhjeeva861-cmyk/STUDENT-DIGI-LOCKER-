@@ -14,6 +14,13 @@
     document.head.appendChild(favicon);
   }
 
+  if (!document.querySelector('link[href="assets/css/responsive.css"]')) {
+    const responsiveStyles = document.createElement('link');
+    responsiveStyles.rel = 'stylesheet';
+    responsiveStyles.href = 'assets/css/responsive.css';
+    document.head.appendChild(responsiveStyles);
+  }
+
   window.slToast = function(message, type='info') {
     const el = document.createElement('div');
     el.className = `toast-item ${type}`;
@@ -33,6 +40,50 @@
       '"': '&quot;',
       "'": '&#039;'
     }[char]));
+  };
+
+  const firebaseStorageUrlPattern = /firebasestorage\.googleapis\.com|storage\.googleapis\.com|\.appspot\.com\/o\//i;
+  const cloudinaryUrlPattern = /^https:\/\/res\.cloudinary\.com\/[^/]+\/(?:image|raw|video|auto)\/upload\//i;
+
+  window.slIsLegacyFirebaseStorageUrl = function(url = '') {
+    return firebaseStorageUrlPattern.test(String(url || ''));
+  };
+
+  window.slDocumentUrl = function(doc = {}, options = {}) {
+    const { allowDataUrl = true } = options;
+    const candidates = [doc.documentUrl, doc.fileUrl, allowDataUrl ? doc.dataUrl : ''];
+    return candidates.find((url) => url && !window.slIsLegacyFirebaseStorageUrl(url)) || '';
+  };
+
+  window.slDownloadUrl = function(docOrUrl = {}, filename = '') {
+    const sourceUrl = typeof docOrUrl === 'string'
+      ? docOrUrl
+      : window.slDocumentUrl(docOrUrl, { allowDataUrl: true });
+    if (!sourceUrl || window.slIsLegacyFirebaseStorageUrl(sourceUrl)) return '';
+    if (!cloudinaryUrlPattern.test(sourceUrl) || sourceUrl.includes('/upload/fl_attachment')) return sourceUrl;
+    const attachmentName = String(filename || '').trim()
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^A-Za-z0-9._-]+/g, '_')
+      .slice(0, 120);
+    const attachmentFlag = attachmentName ? `fl_attachment:${attachmentName}` : 'fl_attachment';
+    return sourceUrl.replace('/upload/', `/upload/${attachmentFlag}/`);
+  };
+
+  window.slDownloadDocument = function(doc = {}, fallbackName = 'document') {
+    const fileName = doc.fileName || doc.filename || doc.documentName || doc.title || fallbackName;
+    const url = window.slDownloadUrl(doc, fileName);
+    if (!url) {
+      window.slToast?.('Download link is not available for this document.', 'error');
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
 
   window.isEmail = window.isEmail || function(value = '') {
@@ -111,6 +162,28 @@
     if (!button) return;
     const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     window.slSetTheme(next);
+  });
+
+  const markReady = () => document.body.classList.add('page-ready');
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', markReady, { once: true });
+  } else {
+    markReady();
+  }
+
+  document.addEventListener('click', (event) => {
+    const target = event.target.closest('.btn, .role-card, .nav-link, .menu-btn, .theme-btn');
+    if (!target || target.classList.contains('disabled')) return;
+    const rect = target.getBoundingClientRect();
+    const ripple = document.createElement('span');
+    ripple.className = 'ui-ripple';
+    const size = Math.max(rect.width, rect.height);
+    ripple.style.width = `${size}px`;
+    ripple.style.height = `${size}px`;
+    ripple.style.left = `${event.clientX - rect.left - size / 2}px`;
+    ripple.style.top = `${event.clientY - rect.top - size / 2}px`;
+    target.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
   });
 
   window.getStudents = function(){

@@ -80,7 +80,8 @@
             const docs = await window.documentService.getDocuments(user.uid, category);
             docCount.textContent = docs.length;
             docList.innerHTML = docs.map(doc => {
-                const url = doc.documentUrl || doc.fileUrl || '';
+                const url = window.slDocumentUrl(doc);
+                const downloadUrl = window.slDownloadUrl(doc, doc.fileName || doc.documentName || doc.title || 'document');
                 return `
                 <div class="col-md-6 col-lg-4">
                     <div class="sl-card h-100">
@@ -97,7 +98,7 @@
                         <div class="text-muted small">Size: ${escapeHtml(doc.fileSizeLabel || formatFileSize(doc.fileSize || 0))}</div>
                         <div class="mt-auto d-flex gap-2 pt-2">
                             <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ${url ? '' : 'disabled'}"><i class="fas fa-eye me-1"></i>View</a>
-                            <a href="${escapeHtml(url)}" download="${escapeHtml(doc.fileName || 'document')}" class="btn btn-sm btn-outline-secondary ${url ? '' : 'disabled'}"><i class="fas fa-download me-1"></i>Download</a>
+                            <a href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener" download="${escapeHtml(doc.fileName || doc.documentName || 'document')}" class="btn btn-sm btn-outline-secondary ${downloadUrl ? '' : 'disabled'}"><i class="fas fa-download me-1"></i>Download</a>
                             <button class="btn btn-sm btn-outline-danger ms-auto" data-delete-doc="${escapeHtml(doc.id)}"><i class="fas fa-trash me-1"></i></button>
                         </div>
                     </div>
@@ -181,7 +182,7 @@
             const previewBody = document.getElementById('previewBody');
             previewBody.replaceChildren();
             
-            const url = doc.documentUrl || doc.fileUrl || doc.dataUrl || '';
+            const url = window.slDocumentUrl(doc);
             const type = doc.fileType || doc.type || '';
 
             if (!url) {

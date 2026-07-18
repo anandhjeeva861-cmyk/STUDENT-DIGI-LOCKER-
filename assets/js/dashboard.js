@@ -41,14 +41,31 @@
       else if(cat === 'academic') count = stats.academicCount;
       else if(cat === 'personal') count = stats.personalCount;
       else count = stats.totalDocuments;
-      el.textContent = `${count} ${count === 1 ? 'document' : 'documents'}`;
+      el.dataset.targetCount = String(count);
+      animateCount(el, count, (value) => `${value} ${value === 1 ? 'document' : 'documents'}`);
     });
 
     const summaryDocs = document.getElementById('summaryDocs');
-    if (summaryDocs) summaryDocs.textContent = stats.totalDocuments || 0;
+    if (summaryDocs) animateCount(summaryDocs, stats.totalDocuments || 0);
     const totalDocuments = document.getElementById('totalDocuments');
-    if (totalDocuments) totalDocuments.textContent = stats.totalDocuments || 0;
+    if (totalDocuments) animateCount(totalDocuments, stats.totalDocuments || 0);
 
+  }
+
+  function animateCount(element, target, formatter = (value) => String(value)) {
+    const end = Number(target) || 0;
+    const start = Number(element.dataset.currentCount || 0);
+    const duration = 520;
+    const startedAt = performance.now();
+    const tick = (now) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const value = Math.round(start + (end - start) * eased);
+      element.textContent = formatter(value);
+      if (progress < 1) requestAnimationFrame(tick);
+      else element.dataset.currentCount = String(end);
+    };
+    requestAnimationFrame(tick);
   }
 
   refreshDashboard();

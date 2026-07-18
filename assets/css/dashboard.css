@@ -16,7 +16,9 @@
   display: flex; justify-content: space-between; align-items: center;
   padding: 18px 20px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border);
   box-shadow: 0 12px 28px rgba(20, 33, 61, 0.06);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
+.metric-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--primary) 20%, var(--border)); box-shadow: var(--shadow); }
 .metric-card h4 { margin: 0 0 8px; font-size: 1.05rem; }
 .metric-card .value { font-size: 1.7rem; font-weight: 700; }
 
@@ -37,6 +39,20 @@
   gap: 14px;
   min-height: 150px;
   color: var(--text);
+  position: relative;
+  overflow: hidden;
+}
+
+.teacher-action-card::after {
+  content: '';
+  position: absolute;
+  right: -34px;
+  bottom: -34px;
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  pointer-events: none;
 }
 
 .teacher-action-card:hover {
