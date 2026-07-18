@@ -1,11 +1,14 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import dotenv from 'dotenv';
 
 const root = resolve(import.meta.dirname, '..');
-const envPath = resolve(root, '.env');
 const outputPath = resolve(root, 'assets/js/firebase-config.generated.js');
 
-const allowedKeys = [
+dotenv.config({ quiet: true });
+dotenv.config({ path: '.env.local', override: true, quiet: true });
+
+const requiredKeys = [
   'VITE_FIREBASE_API_KEY',
   'VITE_FIREBASE_AUTH_DOMAIN',
   'VITE_FIREBASE_PROJECT_ID',
@@ -17,30 +20,21 @@ const allowedKeys = [
   'VITE_CLOUDINARY_UPLOAD_PRESET',
 ];
 
-function parseEnv(contents) {
-  const env = {};
-  for (const line of contents.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-    if (!match) continue;
-    const [, key, rawValue] = match;
-    let value = rawValue.trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"'))
-      || (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env[key] = value;
+const readEnv = (key) => String(process.env[key] || '').trim();
+const missingKeys = requiredKeys.filter((key) => !readEnv(key));
+
+if (missingKeys.length) {
+  console.error('[generate-runtime-config] Missing required environment variables:');
+  for (const key of missingKeys) {
+    console.error(`- ${key}`);
   }
-  return env;
+  console.error(
+    '[generate-runtime-config] Add these variables to your local environment or to Vercel Project Settings. A physical .env file is not required in production.'
+  );
+  process.exit(1);
 }
 
-const envFile = existsSync(envPath) ? parseEnv(readFileSync(envPath, 'utf8')) : {};
-const runtimeEnv = Object.fromEntries(
-  allowedKeys.map((key) => [key, process.env[key] || envFile[key] || ''])
-);
+const runtimeEnv = Object.fromEntries(requiredKeys.map((key) => [key, readEnv(key)]));
 
 mkdirSync(dirname(outputPath), { recursive: true });
 writeFileSync(
