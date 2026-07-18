@@ -78,6 +78,7 @@
             if (!user) return;
 
             const docs = await window.documentService.getDocuments(user.uid, category);
+            window.currentDocuments = docs;
             docCount.textContent = docs.length;
             docList.innerHTML = docs.map(doc => {
                 const url = window.slDocumentUrl(doc);
@@ -98,7 +99,7 @@
                         <div class="text-muted small">Size: ${escapeHtml(doc.fileSizeLabel || formatFileSize(doc.fileSize || 0))}</div>
                         <div class="mt-auto d-flex gap-2 pt-2">
                             <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ${url ? '' : 'disabled'}"><i class="fas fa-eye me-1"></i>View</a>
-                            <a href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener" download="${escapeHtml(doc.fileName || doc.documentName || 'document')}" class="btn btn-sm btn-outline-secondary ${downloadUrl ? '' : 'disabled'}"><i class="fas fa-download me-1"></i>Download</a>
+                            <button type="button" class="btn btn-sm btn-outline-secondary ${downloadUrl ? '' : 'disabled'}" data-download-doc="${escapeHtml(doc.id)}"><i class="fas fa-download me-1"></i>Download</button>
                             <button class="btn btn-sm btn-outline-danger ms-auto" data-delete-doc="${escapeHtml(doc.id)}"><i class="fas fa-trash me-1"></i></button>
                         </div>
                     </div>
@@ -171,7 +172,12 @@
 
         docList.addEventListener('click', (event) => {
             const deleteButton = event.target.closest('[data-delete-doc]');
+            const downloadButton = event.target.closest('[data-download-doc]');
             if (deleteButton) deleteDoc(deleteButton.getAttribute('data-delete-doc'));
+            if (downloadButton) {
+                const doc = window.currentDocuments?.find(item => String(item.id) === String(downloadButton.getAttribute('data-download-doc')));
+                if (doc) window.slDownloadDocument(doc, doc.fileName || doc.documentName || doc.title || 'document');
+            }
         });
 
         window.previewDoc = async (id) => {

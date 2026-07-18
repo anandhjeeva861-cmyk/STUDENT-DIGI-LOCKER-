@@ -51,8 +51,16 @@
 
   window.slDocumentUrl = function(doc = {}, options = {}) {
     const { allowDataUrl = true } = options;
-    const candidates = [doc.documentUrl, doc.fileUrl, allowDataUrl ? doc.dataUrl : ''];
-    return candidates.find((url) => url && !window.slIsLegacyFirebaseStorageUrl(url)) || '';
+    const candidates = [
+      doc.documentUrl,
+      doc.secure_url,
+      doc.secureUrl,
+      doc.fileUrl,
+      doc.url,
+      allowDataUrl ? doc.dataUrl : '',
+    ];
+    const url = candidates.find((candidate) => candidate && !window.slIsLegacyFirebaseStorageUrl(candidate)) || '';
+    return String(url || '').trim();
   };
 
   window.slDownloadUrl = function(docOrUrl = {}, filename = '') {
@@ -65,7 +73,7 @@
       .replace(/\.[^/.]+$/, '')
       .replace(/[^A-Za-z0-9._-]+/g, '_')
       .slice(0, 120);
-    const attachmentFlag = attachmentName ? `fl_attachment:${attachmentName}` : 'fl_attachment';
+    const attachmentFlag = attachmentName ? `fl_attachment:${encodeURIComponent(attachmentName)}` : 'fl_attachment';
     return sourceUrl.replace('/upload/', `/upload/${attachmentFlag}/`);
   };
 
@@ -78,9 +86,8 @@
     }
     const link = document.createElement('a');
     link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener';
     link.download = fileName;
+    link.rel = 'noopener';
     document.body.appendChild(link);
     link.click();
     link.remove();

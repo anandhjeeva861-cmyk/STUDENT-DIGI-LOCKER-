@@ -875,39 +875,65 @@ const firebaseServices = {
 
   subscribeStudentDocuments: async (uid, callback) => {
     firebaseServices._assertReady();
-    let documentsQuery;
     const role = await getCurrentRole();
     if (role === 'teacher') {
       const student = await firebaseServices.getStudentById(uid);
       const teacher = await assertTeacherCanAccessStudent(student);
-      documentsQuery = query(
+      const documentsQuery = query(
         collection(db, 'academicCertificates'),
         where("studentUid", "==", uid),
         where("department", "==", teacher.department),
         where("year", "==", teacher.year)
       );
-    } else if (auth.currentUser && String(uid) === String(auth.currentUser.uid)) {
-      const studentProfile = await getActiveStudentProfile();
-      documentsQuery = query(
-        collection(db, 'academicCertificates'),
-        where("studentUid", "==", uid),
-        where("department", "==", studentProfile.department),
-        where("year", "==", studentProfile.year || '')
-      );
-    } else {
+      return onSnapshot(documentsQuery, (snapshot) => {
+        callback(snapshot.docs.map((documentSnapshot) => ({
+          id: documentSnapshot.id,
+          collectionName: 'academicCertificates',
+          category: 'Academic Certificates',
+          ...documentSnapshot.data(),
+        })));
+      }, (error) => {
+        console.error('[firebase-services] Student document listener failed.', error);
+        window.slToast?.(error.message || 'Student document sync failed.', 'error');
+      });
+    }
+
+    if (!auth.currentUser || String(uid) !== String(auth.currentUser.uid)) {
       throw new Error('Access denied. You can view only your own documents.');
     }
-    return onSnapshot(documentsQuery, (snapshot) => {
-      callback(snapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
-        collectionName: 'academicCertificates',
-        category: 'Academic Certificates',
-        ...documentSnapshot.data(),
-      })));
-    }, (error) => {
-      console.error('[firebase-services] Student document listener failed.', error);
-      window.slToast?.(error.message || 'Student document sync failed.', 'error');
+
+    const studentProfile = await getActiveStudentProfile();
+    const byCategory = new Map();
+    let readyCount = 0;
+    const emit = () => {
+      if (readyCount < DOCUMENT_CATEGORIES.length) return;
+      callback(Array.from(byCategory.values()).flat());
+    };
+
+    const unsubscribers = DOCUMENT_CATEGORIES.map((category) => {
+      const collectionName = getCollectionName(category);
+      const documentsQuery = query(
+        collection(db, collectionName),
+        where("studentUid", "==", uid),
+        where("department", "==", studentProfile.department)
+      );
+      return onSnapshot(documentsQuery, (snapshot) => {
+        const wasReady = byCategory.has(category);
+        byCategory.set(category, snapshot.docs.map((documentSnapshot) => ({
+          id: documentSnapshot.id,
+          collectionName,
+          category,
+          ...documentSnapshot.data(),
+        })));
+        if (!wasReady) readyCount += 1;
+        emit();
+      }, (error) => {
+        console.error('[firebase-services] Student document listener failed.', error);
+        window.slToast?.(error.message || 'Student document sync failed.', 'error');
+      });
     });
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   },
 
   deleteStudent: async (studentId) => {

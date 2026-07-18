@@ -9,12 +9,19 @@
 </head><body>
 <div data-layout="teacher">
   <div class="welcome-hero">
-    <div><h3>Welcome, <span data-user-name>Teacher</span></h3><p>Coordinate student onboarding and document review from one professional workspace.</p></div>
-    <div class="text-md-end mt-3 mt-md-0">
-      <small class="text-muted d-block">Department</small>
+    <div class="hero-copy">
+      <span class="hero-kicker"><i class="fas fa-chart-line me-1"></i>Academic command center</span>
+      <h3>Welcome, <span data-user-name>Teacher</span></h3>
+      <p>Coordinate student onboarding and document review from one professional workspace.</p>
+      <div class="welcome-actions">
+        <a class="btn btn-light btn-sm" href="search-student.html"><i class="fas fa-list-check me-1"></i>Review Students</a>
+        <a class="btn btn-outline-light btn-sm" href="add-student.html"><i class="fas fa-user-plus me-1"></i>Add Student</a>
+      </div>
+    </div>
+    <div class="hero-stat-panel">
+      <small>Department</small>
       <strong data-teacher-department>Loading...</strong>
-      <small class="text-muted d-block mt-2">Academic Year</small>
-      <strong data-teacher-year>Loading...</strong>
+      <span>Year: <b data-teacher-year>Loading...</b></span>
     </div>
   </div>
   <div class="teacher-action-grid">
@@ -140,7 +147,7 @@
                 ${isUploaded ? `<td><span class="badge-info">${escapeHtml(student.document?.status || 'uploaded')}</span></td>` : ''}
                 ${isUploaded ? `<td class="text-nowrap">
                   <a class="btn btn-sm btn-outline-primary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="fas fa-eye me-1"></i>View</a>
-                  <a class="btn btn-sm btn-outline-secondary ${downloadUrl ? '' : 'disabled'}" href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener" download="${escapeHtml(student.document?.fileName || student.document?.filename || type)}"><i class="fas fa-download me-1"></i>Download</a>
+                  <button type="button" class="btn btn-sm btn-outline-secondary ${downloadUrl ? '' : 'disabled'}" data-download-doc="${escapeHtml(documentId)}"><i class="fas fa-download me-1"></i>Download</button>
                 </td>` : ''}
               </tr>`;
             }).join('')}
@@ -197,6 +204,13 @@
     const button = event.target.closest('[data-open-list]');
     if (!button) return;
     openList(button.getAttribute('data-open-list'), button.getAttribute('data-mode'));
+  });
+
+  document.getElementById('analyticsListBody').addEventListener('click', (event) => {
+    const downloadButton = event.target.closest('[data-download-doc]');
+    if (!downloadButton) return;
+    const doc = activeDocuments.find((item) => String(item.id) === String(downloadButton.getAttribute('data-download-doc')));
+    if (doc) window.slDownloadDocument(doc, doc.fileName || doc.documentName || doc.title || 'document');
   });
 
   window.addEventListener('beforeunload', () => {

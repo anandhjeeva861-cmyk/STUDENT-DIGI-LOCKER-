@@ -9,7 +9,20 @@
 </head><body>
 <div data-layout="student">
   <div class="welcome-hero">
-    <div><h3>Welcome, <span data-user-name>Student</span></h3><p>Your digital locker is ready for secure records and academic documents.</p></div>
+    <div class="hero-copy">
+      <span class="hero-kicker"><i class="fas fa-shield-halved me-1"></i>Verified campus vault</span>
+      <h3>Welcome, <span data-user-name>Student</span></h3>
+      <p>Your digital locker is ready for secure records and academic documents.</p>
+      <div class="welcome-actions">
+        <a class="btn btn-light btn-sm" href="personal-documents.html"><i class="fas fa-upload me-1"></i>Upload Document</a>
+        <a class="btn btn-outline-light btn-sm" href="profile.html"><i class="fas fa-user-check me-1"></i>Profile</a>
+      </div>
+    </div>
+    <div class="hero-stat-panel">
+      <small>Total Documents</small>
+      <strong data-doc-count="total">0</strong>
+      <span>Synced securely with Firestore</span>
+    </div>
   </div>
   <div class="stat-row">
     <a href="personal-documents.html" class="sl-card doc-card text-decoration-none text-reset">

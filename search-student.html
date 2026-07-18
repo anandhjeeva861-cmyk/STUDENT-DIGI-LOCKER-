@@ -150,7 +150,7 @@
               <td>${escapeHtml(formatDocDate(doc.createdAt))}</td>
               <td class="text-nowrap">
                 <a class="btn btn-sm btn-outline-primary ${url ? '' : 'disabled'}" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="fas fa-eye me-1"></i>View</a>
-                <a class="btn btn-sm btn-outline-secondary ${downloadUrl ? '' : 'disabled'}" href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener" download="${escapeHtml(doc.fileName || doc.filename || doc.title || 'document')}"><i class="fas fa-download me-1"></i>Download</a>
+                <button type="button" class="btn btn-sm btn-outline-secondary ${downloadUrl ? '' : 'disabled'}" data-download-doc="${escapeHtml(doc.id)}"><i class="fas fa-download me-1"></i>Download</button>
               </td>
             </tr>`;
           }).join('')}
@@ -233,6 +233,12 @@
     if (deleteButton) deleteStudent(deleteButton.getAttribute('data-delete-student'));
   });
   document.getElementById('studentDetailsModal').addEventListener('hidden.bs.modal', stopStudentDocumentSync);
+  document.getElementById('studentDocumentsBody').addEventListener('click', (event) => {
+    const downloadButton = event.target.closest('[data-download-doc]');
+    if (!downloadButton) return;
+    const doc = (window.currentStudentDocuments || []).find(item => String(item.id) === String(downloadButton.getAttribute('data-download-doc')));
+    if (doc) window.slDownloadDocument(doc, doc.fileName || doc.documentName || doc.title || 'document');
+  });
   async function startRealtimeStudentList() {
     await Promise.all([lockDepartmentFilter(), lockYearFilter()]);
     try {
