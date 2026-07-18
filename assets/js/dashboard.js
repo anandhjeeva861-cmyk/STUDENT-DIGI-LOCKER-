@@ -1,6 +1,6 @@
 (function(){
   const role = localStorage.getItem('sl_role') || 'student';
-  const user = JSON.parse(localStorage.getItem('sl_user') || '{}');
+  const user = window.slReadJson?.('sl_user', {}) || {};
   document.querySelectorAll('[data-user-name]').forEach(el => { el.textContent = user.name || (role === 'teacher' ? 'Professor' : 'Student'); });
 
   async function refreshDashboard(){

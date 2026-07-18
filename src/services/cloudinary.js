@@ -1,5 +1,5 @@
 const CLOUDINARY_UPLOAD_URL = (cloudName) =>
-  `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+  `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/auto/upload`;
 
 const ALLOWED_FILE_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 const ALLOWED_FILE_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg'];
@@ -33,9 +33,11 @@ export async function uploadDocument(file) {
   if (validationError) throw new Error(validationError);
 
   const { cloudName, uploadPreset } = cloudinaryConfig();
+  const originalFilename = String(file.name || 'document').trim();
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', uploadPreset);
+  formData.append('filename_override', originalFilename);
 
   let response;
   try {
@@ -65,7 +67,7 @@ export async function uploadDocument(file) {
   return {
     secure_url: result.secure_url,
     public_id: result.public_id,
-    original_filename: result.original_filename || file.name,
+    original_filename: result.original_filename || originalFilename,
     format: result.format || '',
     bytes: result.bytes || file.size,
   };

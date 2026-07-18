@@ -4,7 +4,7 @@
 
   function getRole(){ return localStorage.getItem('sl_role') || 'student'; }
   function getUserName(){
-    const user = JSON.parse(localStorage.getItem('sl_user') || '{}');
+    const user = window.slReadJson?.('sl_user', {}) || {};
     return user.name || (getRole() === 'teacher' ? 'Teacher' : 'Student');
   }
   function isActivePage(href) {
@@ -28,7 +28,7 @@
     <nav class="nav-list">
       <a class="nav-link ${getRole()==='teacher'?'':'active'}" href="${getRole()==='teacher'?'teacher-dashboard.html':'student-dashboard.html'}"><i class="fas fa-gauge-high"></i> Dashboard</a>
       ${getRole() === 'teacher' ? `<a class="nav-link" href="search-student.html"><i class="fas fa-list"></i> Student List</a><a class="nav-link" href="teacher-profile.html"><i class="fas fa-user-tie"></i> View Profile</a>` : `<a class="nav-link" href="personal-documents.html"><i class="fas fa-id-card"></i> Personal Docs</a><a class="nav-link" href="online-certificates.html"><i class="fas fa-cloud"></i> Online Certificates</a><a class="nav-link" href="offline-certificates.html"><i class="fas fa-folder-open"></i> Offline Certificates</a><a class="nav-link" href="academic-certificates.html"><i class="fas fa-graduation-cap"></i> Academic Certificates</a><a class="nav-link" href="profile.html"><i class="fas fa-user"></i> View Profile</a>`}
-      <a id="logoutBtn" class="nav-link" href="#"><i class="fas fa-right-from-bracket"></i> Logout</a>
+      <a id="logoutBtn" class="nav-link" href="index.html"><i class="fas fa-right-from-bracket"></i> Logout</a>
     </nav>
   `;
   const overlay = document.createElement('div');

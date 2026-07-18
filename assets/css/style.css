@@ -63,24 +63,24 @@ img { max-width: 100%; display: block; }
 }
 
 .portal-logo-auth {
-  width: clamp(92px, 18vw, 128px);
-  height: clamp(92px, 18vw, 128px);
-  margin: 0 auto 18px;
-  filter: drop-shadow(0 14px 24px rgba(15, 49, 95, 0.18));
+  width: clamp(118px, 20vw, 156px);
+  height: clamp(118px, 20vw, 156px);
+  margin: 0 auto 22px;
+  filter: drop-shadow(0 16px 28px rgba(15, 49, 95, 0.22));
 }
 
 .portal-logo-sidebar {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 68px;
+  height: 68px;
+  border-radius: 16px;
   background: rgba(255,255,255,0.12);
-  padding: 4px;
+  padding: 5px;
 }
 
 .portal-logo-topbar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
 }
 
 .app-shell {
@@ -555,4 +555,80 @@ textarea {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Production polish: glass surfaces, motion, upload states, and responsive logo scale */
+.sl-card,
+.topbar,
+.auth-card,
+.metric-card,
+.modal-content {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--surface) 92%, white), color-mix(in srgb, var(--surface-2) 86%, white));
+  backdrop-filter: blur(16px);
+}
+
+.sl-card,
+.teacher-action-card,
+.metric-card {
+  animation: cardReveal 360ms ease both;
+}
+
+.sl-card:nth-child(2n),
+.teacher-action-card:nth-child(2n),
+.metric-card:nth-child(2n) {
+  animation-delay: 55ms;
+}
+
+.upload-zone,
+.form-control,
+.form-select,
+.table tbody tr,
+.modal-content {
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+  transform: translateY(-2px) scale(1.01);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: 0 16px 34px rgba(19, 166, 176, 0.14);
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary));
+  background-size: 180% 100%;
+  animation: progressSheen 1.1s linear infinite;
+}
+
+.modal.fade .modal-dialog {
+  transform: translateY(14px) scale(0.985);
+  transition: transform 190ms ease, opacity 190ms ease;
+}
+
+.modal.show .modal-dialog {
+  transform: translateY(0) scale(1);
+}
+
+.btn:disabled,
+.btn.disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+  transform: none;
+}
+
+@keyframes cardReveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes progressSheen {
+  to { background-position: 180% 0; }
+}
+
+@media (max-width: 760px) {
+  .portal-logo-auth { width: 112px; height: 112px; }
+  .portal-logo-topbar { width: 50px; height: 50px; }
+  .portal-logo-sidebar { width: 60px; height: 60px; }
 }

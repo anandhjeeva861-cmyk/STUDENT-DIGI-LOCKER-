@@ -17,10 +17,16 @@
 
     return new Promise((resolve) => {
       let done = false;
+      let timer = null;
+      const onEvent = () => {
+        if (hasServices()) finish();
+      };
 
       const finish = () => {
         if (done) return;
         done = true;
+        if (timer) window.clearInterval(timer);
+        window.removeEventListener('firebase-ready', onEvent);
         try {
           if (typeof onReady === 'function') onReady();
         } finally {
@@ -43,20 +49,16 @@
       }
 
       // Listen for event.
-      const onEvent = () => {
-        if (hasServices()) finish();
-      };
       window.addEventListener('firebase-ready', onEvent, { once: true });
 
       // Poll in case event never fires.
-      const t = window.setInterval(() => {
+      timer = window.setInterval(() => {
         if (hasServices()) {
-          window.clearInterval(t);
           finish();
           return;
         }
         if (Date.now() - started > timeoutMs) {
-          window.clearInterval(t);
+          window.clearInterval(timer);
           window.removeEventListener('firebase-ready', onEvent);
           if (typeof window.slToast === 'function') {
             window.slToast(

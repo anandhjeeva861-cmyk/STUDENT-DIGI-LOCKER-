@@ -110,6 +110,15 @@
     return '';
   };
 
+  window.slReadJson = window.slReadJson || function slReadJson(key, fallback = null) {
+    try {
+      return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback;
+    } catch {
+      localStorage.removeItem(key);
+      return fallback;
+    }
+  };
+
   window.formatFileSize = function(bytes = 0) {
     const size = Number(bytes) || 0;
     if (size < 1024) return `${size} B`;
@@ -191,7 +200,7 @@
       { id: 1, uid: 'local-1', name: 'Asha Kumar', fullName: 'Asha Kumar', reg: 'STU1001', registerNumber: 'STU1001', dept: 'B.Sc Computer Science (BSC CS)', department: 'B.Sc Computer Science (BSC CS)', year: 'III', studentId: 'SL-001', email: 'asha@college.edu' },
       { id: 2, uid: 'local-2', name: 'Ravi Shankar', fullName: 'Ravi Shankar', reg: 'STU1002', registerNumber: 'STU1002', dept: 'Information Technology (IT)', department: 'Information Technology (IT)', year: 'II', studentId: 'SL-002', email: 'ravi@college.edu' }
     ];
-    const stored = JSON.parse(localStorage.getItem('sl_students') || 'null');
+    const stored = window.slReadJson('sl_students', null);
     return stored || seed;
   };
 
@@ -200,7 +209,7 @@
   };
 
   window.getDocs = function(){
-    const stored = JSON.parse(localStorage.getItem('sl_docs') || 'null');
+    const stored = window.slReadJson('sl_docs', null);
     return stored || [];
   };
 
@@ -215,11 +224,11 @@
   };
 
   window.getUser = function(){
-    return JSON.parse(localStorage.getItem('sl_user') || 'null');
+    return window.slReadJson('sl_user', null);
   };
 
   window.getProfile = function(){
-    return JSON.parse(localStorage.getItem('sl_profile') || 'null');
+    return window.slReadJson('sl_profile', null);
   };
 
   window.passwordStrength = function(value){
@@ -243,10 +252,7 @@
     localStorage.setItem('sl_profile', JSON.stringify(profile));
   };
 
-  const readJson = (key, fallback) => {
-    try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; }
-    catch { return fallback; }
-  };
+  const readJson = (key, fallback) => window.slReadJson(key, fallback);
 
   const writeJson = (key, value) => localStorage.setItem(key, JSON.stringify(value));
 
