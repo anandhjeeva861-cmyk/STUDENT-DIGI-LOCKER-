@@ -1,6 +1,6 @@
-import { getApp, getApps, initializeApp } from '@firebase/app';
-import { browserLocalPersistence, getAuth, setPersistence } from '@firebase/auth';
-import { getFirestore } from '@firebase/firestore';
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig, hasFirebaseConfig } from './firebaseConfig.js';
 
 export const firebaseApp = hasFirebaseConfig() ? (getApps().length ? getApp() : initializeApp(firebaseConfig)) : null;

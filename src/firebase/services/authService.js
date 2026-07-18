@@ -1,5 +1,5 @@
 import { getDocument, setDocument, updateDocument } from '../firestore.js';
-import { deleteUser } from '@firebase/auth';
+import { deleteUser } from 'firebase/auth';
 import {
   changeEmail,
   changePassword,

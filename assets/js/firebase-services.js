@@ -1,6 +1,6 @@
 import { auth, authPersistenceReady, db } from './firebase-init.js';
-import { createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updateEmail, updatePassword, deleteUser, onAuthStateChanged } from '@firebase/auth';
-import { setDoc, doc, getDoc, serverTimestamp, updateDoc, addDoc, collection, getDocs, query, where, deleteDoc, getCountFromServer, onSnapshot } from '@firebase/firestore';
+import { createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updateEmail, updatePassword, deleteUser, onAuthStateChanged } from 'firebase/auth';
+import { setDoc, doc, getDoc, serverTimestamp, updateDoc, addDoc, collection, getDocs, query, where, deleteDoc, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { uploadDocument as uploadToCloudinary, validateCloudinaryFile } from '../../src/services/cloudinary.js';
 
 const VALID_DEPARTMENTS = window.SL_DEPARTMENTS || [];

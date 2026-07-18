@@ -10,8 +10,16 @@ const htmlEntries = Object.fromEntries(
 
 export default defineConfig({
   build: {
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       input: htmlEntries,
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) {
+            return 'firebase';
+          }
+        },
+      },
     },
   },
   server: {
@@ -20,4 +28,3 @@ export default defineConfig({
     strictPort: false,
   },
 });
-

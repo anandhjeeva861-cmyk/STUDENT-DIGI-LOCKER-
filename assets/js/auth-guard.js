@@ -1,5 +1,5 @@
 import { auth, authPersistenceReady } from './firebase-init.js';
-import { onAuthStateChanged } from '@firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const publicPages = ['index.html', 'student-register.html', 'teacher-login.html', 'teacher-register.html', ''];
 const teacherPages = ['teacher-dashboard.html', 'teacher-profile.html', 'add-student.html', 'search-student.html'];
