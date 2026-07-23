@@ -9,7 +9,7 @@ const htmlEntries = Object.fromEntries(
 );
 
 export default defineConfig({
-  base: './',
+  base: '/STUDENT-DIGI-LOCKER-/',
   build: {
     chunkSizeWarningLimit: 700,
     rollupOptions: {
