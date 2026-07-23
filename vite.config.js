@@ -9,6 +9,7 @@ const htmlEntries = Object.fromEntries(
 );
 
 export default defineConfig({
+  base: './',
   build: {
     chunkSizeWarningLimit: 700,
     rollupOptions: {

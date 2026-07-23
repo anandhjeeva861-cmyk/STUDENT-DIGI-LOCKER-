@@ -1,7 +1,4 @@
-const viteEnv = import.meta.env || {};
-const runtimeEnv = globalThis.window?.__FIREBASE_ENV__ || {};
-
-const readEnv = (key) => String(viteEnv[key] || runtimeEnv[key] || '').trim();
+const readEnv = (key) => String(import.meta.env?.[key] || '').trim();
 
 export const firebaseConfig = {
   apiKey: readEnv('VITE_FIREBASE_API_KEY'),
