@@ -14,21 +14,24 @@ function isConfiguredValue(value) {
   if (typeof value !== 'string') return false;
   const normalized = value.trim();
   return Boolean(
-    normalized
-      && !normalized.startsWith('YOUR_')
-      && !normalized.startsWith('your-')
-      && !normalized.includes('your_')
-      && !normalized.includes('placeholder')
+    normalized &&
+    !normalized.startsWith('YOUR_') &&
+    !normalized.startsWith('your-') &&
+    !normalized.includes('your_') &&
+    !normalized.includes('placeholder')
   );
 }
 
 export function hasFirebaseConfig(config = firebaseConfig) {
   return Boolean(
-    isConfiguredValue(config.apiKey)
-      && isConfiguredValue(config.authDomain)
-      && isConfiguredValue(config.projectId)
-      && isConfiguredValue(config.storageBucket)
-      && isConfiguredValue(config.messagingSenderId)
-      && isConfiguredValue(config.appId)
+    isConfiguredValue(config.apiKey) &&
+    isConfiguredValue(config.authDomain) &&
+    isConfiguredValue(config.projectId) &&
+    isConfiguredValue(config.storageBucket) &&
+    isConfiguredValue(config.messagingSenderId) &&
+    isConfiguredValue(config.appId)
   );
 }
+
+console.log("firebaseConfig =", firebaseConfig);
+console.log("hasFirebaseConfig =", hasFirebaseConfig(firebaseConfig));
