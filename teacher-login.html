@@ -33,28 +33,6 @@
     <button type="button" class="btn btn-link w-100 mt-1" onclick="location.href='index.html'">← Back to Home</button>
   </form>
 </div></div>
-<script type="module" src="assets/js/constants.js"></script>
-<script type="module" src="assets/js/firebase-init.js"></script>
-<script type="module" src="assets/js/firebase-services.js"></script>
-<script type="module" src="assets/js/wait-for-firebase.js"></script>
-<script type="module" src="assets/js/auth-guard.js"></script>
-<script type="module" src="assets/js/app.js"></script>
-<script type="module" src="assets/js/validation.js"></script>
-<script type="module" src="assets/js/login.js"></script>
-<script type="module">
-  window.handleTeacherForgotPassword = async function handleTeacherForgotPassword() {
-    const email = document.getElementById('teacherEmail').value;
-    if (!email) {
-      slToast('Please enter your email address.', 'error');
-      return;
-    }
-    try {
-      await window.authService.sendPasswordReset(email);
-      slToast('Password reset request accepted.', 'success');
-    } catch (error) {
-      slToast(error.message, 'error');
-    }
-  };
-  window.handleLogin('teacherLoginForm','teacher');
-</script>
+<script type="module" src="/src/main.js"></script>
+<script type="module" src="/src/page-specific/teacher-login.js"></script>
 </body></html>

@@ -1,0 +1,154 @@
+const category = 'Academic Certificates';
+const docList = document.getElementById('doc-list');
+const docCount = document.getElementById('doc-count');
+const uploadForm = document.getElementById('uploadForm');
+const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
+
+async function renderDocuments() {
+  const user = await window.authService.currentUser();
+  if (!user) return;
+
+  const docs = await window.documentService.getDocuments(user.uid, category);
+  window.currentDocuments = docs;
+  docCount.textContent = docs.length;
+  docList.innerHTML = docs.map(doc => {
+    const url = window.slDocumentUrl(doc);
+    const downloadUrl = window.slDownloadUrl(doc, doc.fileName || doc.documentName || doc.title || 'document');
+    return `
+                <div class="col-md-6 col-lg-4">
+                    <div class="sl-card h-100">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <h6 class="mt-2 mb-1">${escapeHtml(doc.title)}</h6>
+                                <div class="text-muted small">${doc.createdAt?.seconds ? new Date(doc.createdAt.seconds * 1000).toLocaleDateString() : '-'}</div>
+                            </div>
+                            <div class="sl-icon-circle"><i class="fas fa-file-alt"></i></div>
+                        </div>
+                        <p class="text-muted small mt-2">${escapeHtml(doc.description || '')}</p>
+                        <div class="text-muted small">Category: ${escapeHtml(doc.category || category)}</div>
+                        <div class="text-muted small">File: ${escapeHtml(doc.fileName || '-')}</div>
+                        <div class="text-muted small">Size: ${escapeHtml(doc.fileSizeLabel || formatFileSize(doc.fileSize || 0))}</div>
+                        <div class="mt-auto d-flex gap-2 pt-2">
+                            <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ${url ? '' : 'disabled'}"><i class="fas fa-eye me-1"></i>View</a>
+                            <button type="button" class="btn btn-sm btn-outline-secondary ${downloadUrl ? '' : 'disabled'}" data-download-doc="${escapeHtml(doc.id)}"><i class="fas fa-download me-1"></i>Download</button>
+                            <button class="btn btn-sm btn-outline-danger ms-auto" data-delete-doc="${escapeHtml(doc.id)}"><i class="fas fa-trash me-1"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `;
+  }).join('');
+}
+
+uploadForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const user = await window.authService.currentUser();
+  if (!user) {
+    slToast('Please sign in before uploading documents.', 'error');
+    return;
+  }
+
+  const title = e.target.title.value;
+  const description = e.target.description.value;
+  const file = e.target.file.files[0];
+
+  if (!window.SL_ACADEMIC_DOCUMENT_TYPES.includes(title)) {
+    slToast('Please select a valid academic document type.', 'error');
+    return;
+  }
+  if (!file) {
+    slToast('Please select a file', 'error');
+    return;
+  }
+  const fileError = validateDocumentFile(file, {
+    maxSizeBytes: 5 * 1024 * 1024
+  });
+  if (fileError) {
+    slToast(fileError, 'error');
+    return;
+  }
+
+  const submitButton = uploadForm.querySelector('button[type="submit"]');
+  const progress = uploadForm.querySelector('[data-upload-progress]');
+  const progressBar = progress?.querySelector('.progress-bar');
+  submitButton.disabled = true;
+  submitButton.textContent = 'Uploading...';
+  progress?.classList.remove('d-none');
+  if (progressBar) progressBar.style.width = '35%';
+  try {
+    if (progressBar) progressBar.style.width = '75%';
+    await window.documentService.uploadDocument({
+      title,
+      description,
+      category,
+      file
+    });
+    if (progressBar) progressBar.style.width = '100%';
+    slToast('Document uploaded successfully', 'success');
+    uploadModal.hide();
+    e.target.reset();
+    renderDocuments();
+  } catch (error) {
+    slToast(error.message, 'error');
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = 'Upload';
+    progress?.classList.add('d-none');
+    if (progressBar) progressBar.style.width = '0%';
+  }
+});
+
+window.deleteDoc = async (id) => {
+  if (!confirm('Are you sure you want to delete this document?')) return;
+  try {
+    await window.documentService.deleteDocument(id, category);
+    slToast('Document deleted successfully', 'success');
+    renderDocuments();
+  } catch (error) {
+    slToast(error.message, 'error');
+  }
+};
+
+docList.addEventListener('click', (event) => {
+  const deleteButton = event.target.closest('[data-delete-doc]');
+  const downloadButton = event.target.closest('[data-download-doc]');
+  if (deleteButton) deleteDoc(deleteButton.getAttribute('data-delete-doc'));
+  if (downloadButton) {
+    const doc = window.currentDocuments?.find(item => String(item.id) === String(downloadButton.getAttribute('data-download-doc')));
+    if (doc) window.slDownloadDocument(doc, doc.fileName || doc.documentName || doc.title || 'document');
+  }
+});
+
+window.previewDoc = async (id) => {
+  const user = await window.authService.currentUser();
+  if (!user) return;
+  const docs = await window.documentService.getDocuments(user.uid, category);
+  const doc = docs.find(d => String(d.id) === String(id));
+  if (!doc) return;
+
+  const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+  document.getElementById('previewTitle').textContent = doc.title;
+  const previewBody = document.getElementById('previewBody');
+  previewBody.replaceChildren();
+
+  const url = window.slDocumentUrl(doc);
+  const type = doc.fileType || doc.type || '';
+
+  if (!url) {
+    previewBody.innerHTML = '<div class="empty-state">Preview is not available for this document.</div>';
+  } else if (type.startsWith('image/')) {
+    const image = document.createElement('img');
+    image.src = url;
+    image.className = 'img-fluid rounded';
+    previewBody.appendChild(image);
+  } else if (type === 'application/pdf') {
+    const frame = document.createElement('iframe');
+    frame.src = url;
+    frame.style.cssText = 'width:100%;height:70vh;border:0';
+    previewBody.appendChild(frame);
+  } else {
+    previewBody.innerHTML = '<div class="empty-state">Preview is not supported for this file type.</div>';
+  }
+  modal.show();
+};
+
+renderDocuments();

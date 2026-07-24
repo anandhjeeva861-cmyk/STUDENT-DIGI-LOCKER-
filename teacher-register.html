@@ -40,53 +40,6 @@
     </div>
   </form>
 </div></div>
-<script type="module" src="assets/js/constants.js"></script>
-<script type="module" src="assets/js/firebase-init.js"></script>
-<script type="module" src="assets/js/firebase-services.js"></script>
-<script type="module" src="assets/js/wait-for-firebase.js"></script>
-<script type="module" src="assets/js/auth-guard.js"></script>
-<script type="module" src="assets/js/app.js"></script>
-<script type="module" src="assets/js/validation.js"></script>
-<script type="module" src="assets/js/login.js"></script>
-<script type="module">
-  document.getElementById('teacherRegisterForm').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const data = Object.fromEntries(new FormData(event.target).entries());
-    if (data.password !== data.confirmPassword) {
-      slToast('Passwords do not match', 'error');
-      return;
-    }
-    if ((data.password || '').length < 8 || !/[A-Za-z]/.test(data.password) || !/[0-9]/.test(data.password)) {
-      slToast('Password must be at least 8 characters and include letters and numbers', 'error');
-      return;
-    }
-    if (!isEmail(data.email)) {
-      slToast('Please enter a valid email address', 'error');
-      return;
-    }
-    if (!data.department) {
-      slToast('Please select a department', 'error');
-      return;
-    }
-    if (!data.year) {
-      slToast('Please select an academic year', 'error');
-      return;
-    }
-    try {
-      await window.authService.registerTeacher({
-        fullName: data.fullName,
-        department: data.department,
-        year: data.year,
-        email: data.email,
-        phone: data.phone,
-        password: data.password
-      });
-      await window.authService.logout();
-      slToast('Teacher registration successful. Please sign in.', 'success');
-      setTimeout(() => { window.location.href = 'teacher-login.html'; }, 600);
-    } catch (error) {
-      slToast(error.message || 'Teacher registration failed', 'error');
-    }
-  });
-</script>
+<script type="module" src="/src/main.js"></script>
+<script type="module" src="/src/page-specific/teacher-register.js"></script>
 </body></html>
