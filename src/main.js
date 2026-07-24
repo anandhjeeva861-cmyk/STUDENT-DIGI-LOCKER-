@@ -9,8 +9,7 @@ import * as documentService from './services/documentService.js';
 import * as teacherService from './services/teacherService.js';
 
 // Load critical legacy assets that set window.* globals
-import '../assets/js/constants.js'; // window.SL_DEPARTMENTS, populateDepartmentSelects, etc.
-import '../assets/js/firebase-services.js'; // window.firebaseServices for hasLiveFirebase() checks
+import '../assets/js/constants.js'; // window.SL_DEPARTMENTS, populateDepartmentSelects, etc
 
 window.authService = authService;
 window.userService = studentService;
@@ -61,7 +60,7 @@ if (isLoginPage || isRegisterPage) {
     });
   };
 
-  const handleRegister = function(formId) {
+  const handleRegister = function(formId, role = 'student') {
     const form = document.getElementById(formId);
     if (!form) return;
     form.addEventListener('submit', async function(e) {
@@ -80,22 +79,38 @@ if (isLoginPage || isRegisterPage) {
         return;
       }
       try {
-        await window.authService.registerStudent({
-          email: data.email,
-          password: data.password,
-          fullName: data.fullName,
-          registerNumber: data.registerNumber,
-          department: data.department,
-          year: data.year,
-          mobile: data.mobile
-        });
-        await window.authService.logout();
-        localStorage.setItem('sl_role', 'student');
-        slToast('Registration successful. Please wait for verification.', 'success');
-        setTimeout(() => window.location.href = 'index.html', 500);
+        if (role === 'teacher') {
+          await window.authService.registerTeacher({
+            email: data.email,
+            password: data.password,
+            fullName: data.fullName,
+            department: data.department,
+            year: data.year,
+            phone: data.phone
+          });
+          await window.authService.logout();
+          localStorage.setItem('sl_role', 'teacher');
+          slToast('Teacher registration successful. Please log in.', 'success');
+          setTimeout(() => window.location.href = 'teacher-login.html', 500);
+        } else {
+          await window.authService.registerStudent({
+            email: data.email,
+            password: data.password,
+            fullName: data.fullName,
+            registerNumber: data.registerNumber,
+            department: data.department,
+            year: data.year,
+            mobile: data.mobile
+          });
+          await window.authService.logout();
+          localStorage.setItem('sl_role', 'student');
+          slToast('Registration successful. Please wait for verification.', 'success');
+          setTimeout(() => window.location.href = 'index.html', 500);
+        }
       } catch (error) {
-        console.error('[app] Student registration failed.', error);
-        slToast(error.message || 'Registration failed', 'error');
+        const message = error.message || (role === 'teacher' ? 'Teacher registration failed' : 'Student registration failed');
+        console.error(`[app] ${role} registration failed.`, error);
+        slToast(message, 'error');
       }
     });
   };

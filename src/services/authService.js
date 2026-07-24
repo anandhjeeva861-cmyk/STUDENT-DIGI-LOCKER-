@@ -77,12 +77,6 @@ const assertValidDepartment = (department) => {
   }
 };
 
-const requireLiveFirebase = () => {
-  if (!hasFirebase()) {
-    throw new Error(window.firebaseInitError?.message || 'Firebase is not configured. Accounts and documents cannot sync until Firebase initializes successfully.');
-  }
-};
-
 
 export async function registerStudent(studentData) {
   if (hasFirebase()) {
@@ -93,7 +87,6 @@ export async function registerStudent(studentData) {
       role: 'student'
     };
   }
-  requireLiveFirebase();
   const email = String(studentData.email || '').trim().toLowerCase();
   if (findLocalAccount(email, 'student')) throw new Error('This email address is already registered.');
   const registerNumber = String(studentData.registerNumber || '').trim();
@@ -137,7 +130,6 @@ export async function registerTeacher(teacherData) {
       role: 'teacher'
     };
   }
-  requireLiveFirebase();
   const email = String(teacherData.email || '').trim().toLowerCase();
   const department = normalizeDepartment(teacherData.department);
   const year = normalizeYear(teacherData.year);
@@ -186,7 +178,6 @@ export async function login(email, password, role) {
       ...(profile || {})
     };
   }
-  requireLiveFirebase();
   const account = findLocalAccount(normalizedEmail, role);
   if (!account || account.password !== password) throw new Error('Invalid email or password.');
   setAuthState(role, account.profile);
@@ -241,7 +232,6 @@ export async function sendPasswordReset(email) {
     await firebaseAuthService.resetPassword(email);
     return;
   }
-  requireLiveFirebase();
   const account = localAccounts().find((item) => item.email.toLowerCase() === String(email || '').trim().toLowerCase());
   if (!account) throw new Error('No account was found for that email address.');
 }
