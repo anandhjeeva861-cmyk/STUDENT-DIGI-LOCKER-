@@ -1,6 +1,5 @@
 import './app.js';
 import './firebase-init.js';
-import { initializePasswordStrengthMeter } from './login.js';
 import { initializeFormValidation } from './validation.js';
 import { initializeLayout } from './layout.js';
 import { refreshDashboard } from './dashboard.js';
@@ -18,10 +17,6 @@ window.userService = studentService;
 window.documentService = documentService;
 window.teacherService = teacherService;
 
-initializePasswordStrengthMeter();
-initializeFormValidation();
-initializeLayout();
-
 console.log('Vite application started');
 
 // Determine current page to run page-specific code
@@ -34,6 +29,8 @@ const isDashboardPage = [
 ].includes(currentPage);
 
 if (isDashboardPage) {
+  initializeFormValidation();
+  initializeLayout();
   refreshDashboard();
 }
 
@@ -42,6 +39,7 @@ const isLoginPage = ['index.html', 'teacher-login.html'].includes(currentPage);
 const isRegisterPage = ['student-register.html', 'teacher-register.html'].includes(currentPage);
 
 if (isLoginPage || isRegisterPage) {
+  initializeFormValidation();
   const handleLogin = function(formId, role) {
     const form = document.getElementById(formId);
     if (!form) return;
@@ -69,7 +67,7 @@ if (isLoginPage || isRegisterPage) {
     form.addEventListener('submit', async function(e) {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(form).entries());
-      if (!isEmail(data.email)) {
+      if (!window.isEmail(data.email)) {
         slToast('Please enter a valid email address', 'error');
         return;
       }

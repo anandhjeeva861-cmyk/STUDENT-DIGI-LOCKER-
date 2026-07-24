@@ -2,6 +2,18 @@
   const isBrowser = typeof window !== 'undefined';
   if(!isBrowser) return;
 
+  // Auth pages: Login & Registration — these pages must NOT get the dashboard sidebar layout
+  const AUTH_PAGES = new Set([
+    'index.html',
+    'teacher-login.html',
+    'student-register.html',
+    'teacher-register.html'
+  ]);
+
+  const _page = window.location.pathname.split('/').pop() || '';
+  // This is a legacy file. The new module `src/layout.js` handles layout injection.
+  if (AUTH_PAGES.has(_page) || true) return;
+
   function getRole(){ return localStorage.getItem('sl_role') || 'student'; }
   function getUserName(){
     const user = window.slReadJson?.('sl_user', {}) || {};

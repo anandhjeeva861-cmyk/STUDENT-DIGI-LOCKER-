@@ -1,13 +1,12 @@
-# Task Progress
+# Task: Separate Login Layout from Dashboard Layout
 
-## ✅ Completed Steps
-- [x] STEP 1: Fix `src/main.js` - Separate Login from Dashboard (make page-aware)
-- [x] STEP 2: Remove Upload File button from student-dashboard.html
-- [x] STEP 3: UI Improvements - Colors, animations, responsive, alignment (login.css, dashboard.css, responsive.css)
-- [x] STEP 4: Department/Year based access enforcement (Firebase services integration + search-student.html filters)
-- [x] STEP 5: Code Cleanup & Debugging - Removed dead asset JS files, fixed Firebase services loading
-- [x] STEP 6: npm install & npm run build - ✅ SUCCESS (0 errors, 74 modules)
-
-## ❌ Pending Steps
-- [ ] STEP 7: Final Report & verification
-
+## Steps
+- [x] 1. Analyze root cause of sidebar rendering on login page
+- [x] 2. Create edit plan and get approval
+- [x] 3. Edit `src/main.js` — Move `initializeLayout()` inside dashboard-only block
+- [x] 4. Edit `src/layout.js` — Confirm page-type guard at the top
+- [x] 5. Edit `assets/js/layout.js` — Add page-type guard at the top (legacy consistency)
+- [x] 6. Run `npm install`
+- [x] 7. Run `npm run build`
+- [x] 8. Fix any build errors
+- [x] 9. Final verification

@@ -1,5 +1,6 @@
 import * as firebaseStudentService from '../firebase/services/studentService.js';
 import {
+  hasFirebase,
   slReadJson
 } from '../app.js';
 import {
@@ -19,8 +20,6 @@ const readJson = (key, fallback) => slReadJson(key, fallback);
 const writeJson = (key, value) => localStorage.setItem(key, JSON.stringify(value));
 const localAccounts = () => readJson('sl_accounts', []);
 const saveLocalAccounts = (accounts) => writeJson('sl_accounts', accounts);
-
-const hasLiveFirebase = () => !!window.firebaseServices && !window.firebaseInitError;
 
 const normalizeYear = (value = '') => String(value).trim().toUpperCase();
 const normalizeDepartment = (value = '') => {
@@ -153,7 +152,7 @@ const addAcademicSummaryToStudents = (students = [], docs = []) => {
 
 export async function getCurrentProfile(role = localStorage.getItem('sl_role') || 'student') {
   const active = await currentUser();
-  if (active?.uid && hasLiveFirebase()) {
+  if (active?.uid && hasFirebase()) {
     const profile = await firebaseStudentService.getStudentProfile(active.uid);
     if (profile) return {
       uid: active.uid,
@@ -179,7 +178,7 @@ export async function addStudent(studentData) {
   studentData.department = normalizeDepartment(studentData.department);
   studentData.year = normalizeYear(studentData.year);
   assertValidDepartment(studentData.department);
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     return firebaseStudentService.addStudentProfile(studentData);
   }
   assertValidYear(studentData.year);
@@ -211,7 +210,7 @@ export async function addStudent(studentData) {
 }
 
 export async function listStudents() {
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     return firebaseStudentService.listStudents();
   }
   const accountStudents = localAccounts()
@@ -236,7 +235,7 @@ export async function getTeacherYear() {
 }
 
 export async function subscribeStudents(callback) {
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     // This is a bit tricky, as the original code doesn't have a firebase equivalent.
     // I will just call the callback with the list of students.
     // A proper implementation would use onSnapshot.
@@ -253,7 +252,7 @@ export async function canAccessStudent(student) {
 }
 
 export async function deleteStudent(studentId) {
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     await firebaseStudentService.deleteStudentProfile(studentId);
     return;
   }

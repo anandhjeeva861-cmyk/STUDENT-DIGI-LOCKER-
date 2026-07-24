@@ -1,5 +1,6 @@
 import * as firebaseAuthService from '../firebase/services/authService.js';
 import {
+  hasFirebase,
   slReadJson
 } from '../app.js';
 import {
@@ -76,18 +77,15 @@ const assertValidDepartment = (department) => {
   }
 };
 
-
-const hasLiveFirebase = () => !!window.firebaseServices && !window.firebaseInitError;
-
 const requireLiveFirebase = () => {
-  if (!hasLiveFirebase()) {
+  if (!hasFirebase()) {
     throw new Error(window.firebaseInitError?.message || 'Firebase is not configured. Accounts and documents cannot sync until Firebase initializes successfully.');
   }
 };
 
 
 export async function registerStudent(studentData) {
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     const user = await firebaseAuthService.registerUser('student', studentData, studentData.password);
     return {
       uid: user.uid,
@@ -131,7 +129,7 @@ export async function registerStudent(studentData) {
 }
 
 export async function registerTeacher(teacherData) {
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     const user = await firebaseAuthService.registerUser('teacher', teacherData, teacherData.password);
     return {
       uid: user.uid,
@@ -169,7 +167,7 @@ export async function registerTeacher(teacherData) {
 
 export async function login(email, password, role) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     const {
       user,
       profile
@@ -196,12 +194,12 @@ export async function login(email, password, role) {
 }
 
 export async function logout() {
-  if (hasLiveFirebase()) await firebaseAuthService.logout();
+  if (hasFirebase()) await firebaseAuthService.logout();
   ['sl_authenticated', 'sl_role', 'sl_user', 'sl_profile'].forEach((key) => localStorage.removeItem(key));
 }
 
 export async function currentUser() {
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     const user = await firebaseAuthService.getCurrentUser();
     if (user) return user;
   }
@@ -209,7 +207,7 @@ export async function currentUser() {
 }
 
 export async function changePassword(newPassword) {
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     await firebaseAuthService.changePassword(newPassword);
     return;
   }
@@ -223,7 +221,7 @@ export async function changePassword(newPassword) {
 }
 
 export async function changeEmail(newEmail) {
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     await firebaseAuthService.changeEmail(newEmail);
     return;
   }
@@ -239,7 +237,7 @@ export async function changeEmail(newEmail) {
 }
 
 export async function sendPasswordReset(email) {
-  if (hasLiveFirebase()) {
+  if (hasFirebase()) {
     await firebaseAuthService.resetPassword(email);
     return;
   }

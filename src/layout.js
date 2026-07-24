@@ -4,8 +4,21 @@ import {
 } from './app.js';
 import * as authService from './services/authService.js';
 
+// Auth pages: Login & Registration — these pages must NOT get the dashboard sidebar layout
+const AUTH_PAGES = new Set([
+  'index.html',
+  'teacher-login.html',
+  'student-register.html',
+  'teacher-register.html'
+]);
+
 function getRole() {
   return localStorage.getItem('sl_role') || 'student';
+}
+
+function isAuthPage() {
+  const page = window.location.pathname.split('/').pop() || '';
+  return AUTH_PAGES.has(page);
 }
 
 function getUserName() {
@@ -18,6 +31,9 @@ function isActivePage(href) {
 }
 
 export function initializeLayout() {
+  // NEVER inject dashboard sidebar layout on auth pages (login / register)
+  if (isAuthPage()) return;
+
   const shell = document.createElement('div');
   shell.className = 'app-shell';
   document.body.prepend(shell);
