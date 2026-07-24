@@ -1,16 +1,13 @@
-# Fix Vite Firebase Deployment - Task List
+# Task Progress
 
-## Steps
+## ✅ Completed Steps
+- [x] STEP 1: Fix `src/main.js` - Separate Login from Dashboard (make page-aware)
+- [x] STEP 2: Remove Upload File button from student-dashboard.html
+- [x] STEP 3: UI Improvements - Colors, animations, responsive, alignment (login.css, dashboard.css, responsive.css)
+- [x] STEP 4: Department/Year based access enforcement (Firebase services integration + search-student.html filters)
+- [x] STEP 5: Code Cleanup & Debugging - Removed dead asset JS files, fixed Firebase services loading
+- [x] STEP 6: npm install & npm run build - ✅ SUCCESS (0 errors, 74 modules)
 
-✅ Step 1: Fix `src/firebase-init.js` - Removed mock firebaseServices, now properly sets up Firebase via Vite
-✅ Step 2: Update `personal-documents.html` - Replaced assets/js scripts with /src/main.js
-✅ Step 3: Update `online-certificates.html` - Same
-✅ Step 4: Update `offline-certificates.html` - Same
-✅ Step 5: Update `academic-certificates.html` - Same
-✅ Step 6: Update `view-document.html` - Same
-✅ Step 7: Update `profile.html` - Same
-✅ Step 8: Update `teacher-profile.html` - Same
-✅ Step 9: Update `add-student.html` - Same
-✅ Step 10: Update `search-student.html` - Same
-✅ Step 11: Run `npm run build` - ✅ SUCCESS (0 errors)
-✅ Step 12: Verify dist/ output - All 15 HTML pages + firebase chunk (564KB) + per-page JS chunks generated
+## ❌ Pending Steps
+- [ ] STEP 7: Final Report & verification
+

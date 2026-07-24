@@ -6,6 +6,38 @@
   pointer-events: none;
 }
 
+.welcome-hero .hero-copy {
+  animation: fadeInLeft 500ms ease both;
+}
+
+.welcome-hero .hero-stat-panel {
+  animation: fadeInRight 500ms ease both 100ms;
+}
+
+.stat-row .doc-card {
+  animation: cardSlideUp 400ms ease both;
+}
+
+.stat-row .doc-card:nth-child(1) { animation-delay: 0ms; }
+.stat-row .doc-card:nth-child(2) { animation-delay: 80ms; }
+.stat-row .doc-card:nth-child(3) { animation-delay: 160ms; }
+.stat-row .doc-card:nth-child(4) { animation-delay: 240ms; }
+
+@keyframes fadeInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes cardSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
@@ -62,4 +94,9 @@
 
 @media (max-width: 900px) {
   .teacher-action-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .welcome-hero { flex-direction: column; align-items: stretch; }
+  .hero-stat-panel { width: 100%; }
 }

@@ -4,6 +4,13 @@ body {
     radial-gradient(circle at bottom right, rgba(30,90,168,0.14), transparent 28%),
     linear-gradient(135deg, #f5f9ff, #edf8fb);
 }
+
+body[data-theme="dark"] {
+  background:
+    radial-gradient(circle at top left, rgba(19,166,176,0.12), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(30,90,168,0.10), transparent 28%),
+    linear-gradient(135deg, #0a1220, #111827);
+}
 .auth-wrapper {
   min-height: 100vh; display: grid; place-items: center; padding: 24px;
 }
@@ -15,7 +22,18 @@ body {
   padding: clamp(24px, 4vw, 36px);
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
+  animation: cardReveal 400ms ease both;
 }
+
+.auth-card:nth-child(2) {
+  animation-delay: 100ms;
+}
+
+@keyframes cardReveal {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .auth-logo {
   width: 70px; height: 70px; border-radius: 20px; display: grid; place-items: center;
   margin: 0 auto 16px; font-size: 1.8rem; color: white; background: linear-gradient(135deg, var(--primary), var(--accent));
@@ -27,18 +45,22 @@ body {
   height: auto;
 }
 .auth-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
-.auth-sub { color: var(--muted); margin-bottom: 18px; }
-.choose-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.auth-sub { color: var(--muted); margin-bottom: 24px; font-size: 0.95rem; line-height: 1.5; }
+.choose-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .role-card {
-  border: 1px solid var(--border); border-radius: 18px; padding: 18px; text-align: center; cursor: pointer; transition: all 180ms ease;
+  border: 1px solid var(--border); border-radius: 18px; padding: 22px 18px; text-align: center; cursor: pointer; transition: all 180ms ease;
   background: var(--surface-2);
   position: relative;
   overflow: hidden;
 }
-.role-card:hover { transform: translateY(-2px); border-color: var(--accent); color: var(--primary); background: var(--accent-soft); }
-.role-card i { font-size: 1.5rem; color: var(--accent); margin-bottom: 8px; }
-.auth-links { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 14px; font-size: 0.92rem; color: var(--muted); }
+.role-card:hover { transform: translateY(-3px); border-color: var(--accent); color: var(--primary); background: var(--accent-soft); box-shadow: 0 12px 28px rgba(19,166,176,0.14); }
+.role-card i { font-size: 1.8rem; color: var(--accent); margin-bottom: 10px; }
+.role-card h6 { font-size: 1rem; font-weight: 600; }
+.role-card small { font-size: 0.82rem; }
+.auth-links { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 18px; font-size: 0.92rem; color: var(--muted); }
+.auth-links label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .password-field { position: relative; }
-.password-field .toggle-pw { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--muted); }
+.password-field .toggle-pw { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 4px; }
+.password-field .toggle-pw:hover { color: var(--primary); }
 .pw-meter { margin-top: 8px; height: 6px; background: rgba(148,163,184,0.2); border-radius: 999px; overflow: hidden; }
 .pw-meter .bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--warning), var(--success)); transition: width 180ms ease; }

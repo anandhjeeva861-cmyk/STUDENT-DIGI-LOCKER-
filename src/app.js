@@ -293,3 +293,38 @@ export function passwordStrength(value) {
   if (/[^A-Za-z0-9]/.test(value)) score++;
   return score;
 }
+
+// Expose all functions as window globals for inline HTML scripts
+if (isBrowser) {
+  const exports = {
+    slToast,
+    escapeHtml,
+    slIsLegacyFirebaseStorageUrl,
+    slDocumentUrl,
+    slDownloadUrl,
+    slDownloadDocument,
+    isEmail,
+    validateDocumentFile,
+    slReadJson,
+    formatFileSize,
+    slSetTheme,
+    SL_YEARS,
+    SL_YEAR_LABELS,
+    SL_ACADEMIC_DOCUMENT_TYPES,
+    populateYearSelects,
+    getStudents,
+    saveStudents,
+    getDocs,
+    addDoc,
+    deleteDoc,
+    getUser,
+    getProfile,
+    passwordStrength
+  };
+
+  Object.entries(exports).forEach(([key, value]) => {
+    if (value !== undefined && !window[key]) {
+      window[key] = value;
+    }
+  });
+}
