@@ -9,7 +9,8 @@ import * as documentService from './services/documentService.js';
 import * as teacherService from './services/teacherService.js';
 
 // Load critical legacy assets that set window.* globals
-import '../assets/js/constants.js'; // window.SL_DEPARTMENTS, populateDepartmentSelects, etc
+import '../assets/js/constants.js'; // window.SL_DEPARTMENTS, populateDepartmentSelects, etc.
+import '../assets/js/firebase-services.js'; // window.firebaseServices for hasLiveFirebase() checks
 
 window.authService = authService;
 window.userService = studentService;

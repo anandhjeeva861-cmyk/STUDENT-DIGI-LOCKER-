@@ -1,4 +1,3 @@
-import * as firebaseDocumentService from '../firebase/services/documentService.js';
 import {
   slReadJson,
   validateDocumentFile,
@@ -11,18 +10,16 @@ import {
   getCurrentProfile
 } from './studentService.js';
 
+const SL_ACADEMIC_DOCUMENT_TYPES = window.SL_ACADEMIC_DOCUMENT_TYPES || [
+  'Aadhaar Card', 'Income Certificate', 'Community Certificate', '10th Marksheet', '12th Marksheet', 'Bank Passbook',
+];
+
 const readJson = (key, fallback) => slReadJson(key, fallback);
 const writeJson = (key, value) => localStorage.setItem(key, JSON.stringify(value));
-const hasLiveFirebase = () => !!window.firebaseServices && !window.firebaseInitError;
 
-const SL_ACADEMIC_DOCUMENT_TYPES = [
-  'Aadhaar Card',
-  'Income Certificate',
-  'Community Certificate',
-  '10th Marksheet',
-  '12th Marksheet',
-  'Bank Passbook',
-];
+function hasFirebase() {
+  return !!window.firebaseServices && !window.firebaseInitError;
+}
 
 const isAcademicDocumentType = (title = '') => SL_ACADEMIC_DOCUMENT_TYPES.includes(String(title).trim());
 
@@ -46,9 +43,9 @@ export function getAllDocuments() {
 export async function getDocumentById(id, options = {}) {
   const {
     uid = '', category = ''
-  } = options;
-  if (hasLiveFirebase()) {
-    return firebaseDocumentService.findStudentDocument(id, {
+  } = options; // Use hasFirebase from app.js
+  if (hasFirebase()) {
+    return window.firebaseServices.getDocumentById(id, {
       studentUid: uid,
       category
     });
@@ -70,8 +67,8 @@ export async function getDocumentById(id, options = {}) {
 }
 
 export async function getDocuments(uid, category) {
-  if (hasLiveFirebase() && category) {
-    return firebaseDocumentService.listStudentDocuments(uid, category);
+  if (hasFirebase() && category) {
+    return window.firebaseServices.getDocuments(uid, category);
   }
   const docs = getAllDocuments();
   let filtered = docs.filter((doc) => (!uid || doc.studentUid === uid) && (!category || doc.category === category));
@@ -80,13 +77,8 @@ export async function getDocuments(uid, category) {
 }
 
 export async function getStudentDocuments(uid) {
-  if (hasLiveFirebase()) {
-    const allDocs = [];
-    for (const category in firebaseDocumentService.documentCollections) {
-      const docs = await firebaseDocumentService.listStudentDocuments(uid, category);
-      allDocs.push(...docs);
-    }
-    return allDocs;
+  if (hasFirebase()) {
+    return window.firebaseServices.getStudentDocuments(uid);
   }
   let docs = getAllDocuments().filter((doc) => String(doc.studentUid) === String(uid));
   // docs = await visibleDocumentsForTeacher(docs);
@@ -95,11 +87,7 @@ export async function getStudentDocuments(uid) {
 
 export async function subscribeStudentDocuments(uid, callback) {
   if (hasLiveFirebase()) {
-    // This is a bit tricky, as the original code doesn't have a firebase equivalent.
-    // I will just call the callback with the list of documents.
-    // A proper implementation would use onSnapshot.
-    const docs = await getStudentDocuments(uid);
-    callback(docs);
+    return window.firebaseServices.subscribeStudentDocuments(uid, callback);
     return () => {};
   }
   callback(await getStudentDocuments(uid));
@@ -125,12 +113,13 @@ export async function uploadDocument({
   if (category === 'Academic Certificates' && existingDocs.some((doc) => doc.title === title.trim())) {
     throw new Error(`${title.trim()} is already uploaded for this student.`);
   }
-  if (hasLiveFirebase()) {
-    // This needs a proper implementation with file uploads to firebase storage
-    // and then creating the document in firestore.
-    // The original firebase-services.js has some cloudinary implementation,
-    // which I am not porting right now.
-    // For now, I will just add it to the local storage.
+  if (hasFirebase()) {
+    return window.firebaseServices.uploadDocument({
+      file,
+      title,
+      description,
+      category
+    });
   }
 
   const dataUrl = await readFileAsDataUrl(file);
@@ -172,9 +161,9 @@ export async function uploadDocument({
 export async function deleteDocument(id, category = '') {
   const record = getAllDocuments().find((doc) => String(doc.id) === String(id));
   // if (record) await assertTeacherCanAccessDocument(record);
-  const documentCategory = category || record?.category;
-  if (hasLiveFirebase() && documentCategory) {
-    await firebaseDocumentService.removeStudentDocument(id, documentCategory);
+  const documentCategory = category || record?.category; // Use hasFirebase from app.js
+  if (hasFirebase() && documentCategory) {
+    await window.firebaseServices.deleteDocument(id, documentCategory);
     return;
   }
   writeJson('sl_docs', getAllDocuments().filter((doc) => String(doc.id) !== String(id)));
@@ -183,8 +172,8 @@ export async function deleteDocument(id, category = '') {
 export async function getStats(uid = readJson('sl_user', {})?.uid) {
   const active = uid ? null : await currentUser();
   const studentUid = uid || active?.uid || '';
-  if (hasLiveFirebase()) {
-    // This needs a proper implementation with firebase
+  if (hasFirebase()) {
+    return window.firebaseServices.getDashboardStats(studentUid);
   }
   const docs = await getDocuments(studentUid);
   return {

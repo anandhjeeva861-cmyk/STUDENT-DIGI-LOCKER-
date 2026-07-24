@@ -1,4 +1,3 @@
-import * as firebaseStudentService from '../firebase/services/studentService.js';
 import {
   hasFirebase,
   slReadJson
@@ -13,8 +12,8 @@ import {
   getProfile
 } from '../app.js';
 
-const SL_YEARS = ['I', 'II', 'III'];
-const SL_DEPARTMENTS = []; // This should be populated from somewhere
+const SL_YEARS = window.SL_YEARS || ['I', 'II', 'III'];
+const SL_DEPARTMENTS = window.SL_DEPARTMENTS || [];
 
 const readJson = (key, fallback) => slReadJson(key, fallback);
 const writeJson = (key, value) => localStorage.setItem(key, JSON.stringify(value));
@@ -153,7 +152,7 @@ const addAcademicSummaryToStudents = (students = [], docs = []) => {
 export async function getCurrentProfile(role = localStorage.getItem('sl_role') || 'student') {
   const active = await currentUser();
   if (active?.uid && hasFirebase()) {
-    const profile = await firebaseStudentService.getStudentProfile(active.uid);
+    const profile = await window.firebaseServices.getUserProfile(active.uid, role);
     if (profile) return {
       uid: active.uid,
       ...profile
@@ -178,8 +177,8 @@ export async function addStudent(studentData) {
   studentData.department = normalizeDepartment(studentData.department);
   studentData.year = normalizeYear(studentData.year);
   assertValidDepartment(studentData.department);
-  if (hasFirebase()) {
-    return firebaseStudentService.addStudentProfile(studentData);
+  if (hasFirebase()) { // Use window.firebaseServices.addStudentProfile
+    return window.firebaseServices.addStudentProfile(studentData);
   }
   assertValidYear(studentData.year);
   const students = getStudents();
@@ -211,7 +210,7 @@ export async function addStudent(studentData) {
 
 export async function listStudents() {
   if (hasFirebase()) {
-    return firebaseStudentService.listStudents();
+    return window.firebaseServices.listStudents();
   }
   const accountStudents = localAccounts()
     .filter((account) => account.role === 'student')
@@ -236,11 +235,7 @@ export async function getTeacherYear() {
 
 export async function subscribeStudents(callback) {
   if (hasFirebase()) {
-    // This is a bit tricky, as the original code doesn't have a firebase equivalent.
-    // I will just call the callback with the list of students.
-    // A proper implementation would use onSnapshot.
-    const students = await listStudents();
-    callback(students);
+    return window.firebaseServices.subscribeStudents(callback);
     return () => {};
   }
   callback(await listStudents());
@@ -253,7 +248,7 @@ export async function canAccessStudent(student) {
 
 export async function deleteStudent(studentId) {
   if (hasFirebase()) {
-    await firebaseStudentService.deleteStudentProfile(studentId);
+    await window.firebaseServices.deleteStudent(studentId);
     return;
   }
   const student = getStudents().find((item) => String(item.uid || item.id) === String(studentId));

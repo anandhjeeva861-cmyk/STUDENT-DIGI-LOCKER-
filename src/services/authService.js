@@ -1,15 +1,14 @@
-import * as firebaseAuthService from '../firebase/services/authService.js';
 import {
   hasFirebase,
   slReadJson
 } from '../app.js';
 import {
   getStudents,
-  saveStudents
-} from './studentService.js'; // I will create this later
+  saveStudents,
+} from './studentService.js';
 
-const SL_YEARS = ['I', 'II', 'III'];
-const SL_DEPARTMENTS = []; // This should be populated from somewhere
+const SL_YEARS = window.SL_YEARS || ['I', 'II', 'III'];
+const SL_DEPARTMENTS = window.SL_DEPARTMENTS || [];
 
 function setAuthState(role, profile = {}) {
   localStorage.setItem('sl_authenticated', 'true');
@@ -88,7 +87,6 @@ export async function registerStudent(studentData) {
     };
   }
   const email = String(studentData.email || '').trim().toLowerCase();
-  if (findLocalAccount(email, 'student')) throw new Error('This email address is already registered.');
   const registerNumber = String(studentData.registerNumber || '').trim();
   const department = normalizeDepartment(studentData.department);
   const year = normalizeYear(studentData.year);
@@ -123,7 +121,14 @@ export async function registerStudent(studentData) {
 
 export async function registerTeacher(teacherData) {
   if (hasFirebase()) {
-    const user = await firebaseAuthService.registerUser('teacher', teacherData, teacherData.password);
+    const user = await window.firebaseServices.registerTeacher({
+      email: teacherData.email,
+      password: teacherData.password,
+      fullName: teacherData.fullName,
+      department: teacherData.department,
+      year: teacherData.year,
+      phone: teacherData.phone
+    });
     return {
       uid: user.uid,
       email: user.email,
@@ -160,6 +165,8 @@ export async function registerTeacher(teacherData) {
 export async function login(email, password, role) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (hasFirebase()) {
+    const user = await window.firebaseServices.loginWithEmailAndPassword(normalizedEmail, password, role);
+    const profile = await window.firebaseServices.getUserProfile(user.uid, role);
     const {
       user,
       profile
@@ -185,13 +192,13 @@ export async function login(email, password, role) {
 }
 
 export async function logout() {
-  if (hasFirebase()) await firebaseAuthService.logout();
+  if (hasFirebase()) await window.firebaseServices.logout();
   ['sl_authenticated', 'sl_role', 'sl_user', 'sl_profile'].forEach((key) => localStorage.removeItem(key));
 }
 
 export async function currentUser() {
-  if (hasFirebase()) {
-    const user = await firebaseAuthService.getCurrentUser();
+  if (hasFirebase()) { // Use window.firebaseServices.waitForAuthUser for current user
+    const user = await window.firebaseServices.waitForAuthUser();
     if (user) return user;
   }
   return readJson('sl_user', null);
@@ -199,7 +206,7 @@ export async function currentUser() {
 
 export async function changePassword(newPassword) {
   if (hasFirebase()) {
-    await firebaseAuthService.changePassword(newPassword);
+    await window.firebaseServices.updateUserPassword(newPassword);
     return;
   }
   const active = readJson('sl_user', null);
@@ -213,7 +220,7 @@ export async function changePassword(newPassword) {
 
 export async function changeEmail(newEmail) {
   if (hasFirebase()) {
-    await firebaseAuthService.changeEmail(newEmail);
+    await window.firebaseServices.updateUserEmail(newEmail);
     return;
   }
   const active = readJson('sl_user', null);
@@ -229,7 +236,7 @@ export async function changeEmail(newEmail) {
 
 export async function sendPasswordReset(email) {
   if (hasFirebase()) {
-    await firebaseAuthService.resetPassword(email);
+    await window.firebaseServices.sendPasswordReset(email);
     return;
   }
   const account = localAccounts().find((item) => item.email.toLowerCase() === String(email || '').trim().toLowerCase());
